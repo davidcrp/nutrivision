@@ -74,6 +74,7 @@ interface MealState {
   remainingCalories: number;
   addMeal: (meal: Omit<LoggedMeal, "id" | "loggedAt">) => void;
   removeItemFromMeal: (mealId: string, itemId: string) => void;
+  resetOnboarding: () => void;
 }
 
 const MealContext = createContext<MealState | null>(null);
@@ -140,8 +141,14 @@ export const MealProvider = ({ children }: { children: ReactNode }) => {
           if (meal.id !== mealId) return meal;
           return { ...meal, items: meal.items.filter((i) => i.id !== itemId) };
         })
-        .filter((meal) => meal.items.length > 0) // remove empty meals
+        .filter((meal) => meal.items.length > 0)
     );
+  }, []);
+
+  const resetOnboarding = useCallback(() => {
+    setOnboardingComplete(false);
+    localStorage.removeItem("onboarding_complete");
+    localStorage.removeItem("daily_goal");
   }, []);
 
   return (
@@ -158,6 +165,7 @@ export const MealProvider = ({ children }: { children: ReactNode }) => {
         remainingCalories,
         addMeal,
         removeItemFromMeal,
+        resetOnboarding,
       }}
     >
       {children}
