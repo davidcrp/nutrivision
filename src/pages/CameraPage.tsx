@@ -38,8 +38,8 @@ const CameraPage = () => {
 
   const analyzeFoodImage = async (file: File): Promise<AnalysisResult> => {
     try {
+      // Upload image to storage
       let imageUrl: string | null = null;
-
       if (user) {
         const ext = file.name.split(".").pop();
         const path = `${user.id}/${Date.now()}.${ext}`;
@@ -54,23 +54,25 @@ const CameraPage = () => {
         }
       }
 
-      // Try calling edge function (will fallback to mock)
-      try {
-        if (imageUrl) {
-          const { data, error } = await supabase.functions.invoke("analyze-meal", {
-            body: { imageUrl },
-          });
-          if (!error && data) return data as AnalysisResult;
+      // Call AI edge function
+      if (imageUrl) {
+        const { data, error } = await supabase.functions.invoke("analyze-meal", {
+          body: { imageUrl },
+        });
+        if (error) {
+          console.error("AI analysis error:", error);
+          toast({ title: "Erro na análise, usando estimativa", variant: "destructive" });
+        } else if (data && !data.error) {
+          return data as AnalysisResult;
         }
-      } catch {
-        // Edge function not available yet, use mock
       }
 
-      // Simulate AI analysis delay
-      await new Promise((resolve) => setTimeout(resolve, 3000));
+      // Fallback to mock if AI fails
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       return mockAnalysisResult;
-    } catch {
-      await new Promise((resolve) => setTimeout(resolve, 3000));
+    } catch (err) {
+      console.error("analyzeFoodImage error:", err);
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       return mockAnalysisResult;
     }
   };
