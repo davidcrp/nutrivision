@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User, Mail, Lock, Eye, EyeOff, Check, Crown, Palette, ChevronRight, LogOut, Camera, Loader2, Star, Shield, CreditCard } from "lucide-react";
+import AvatarSelector, { AVATAR_MAP } from "@/components/AvatarSelector";
 import BottomNav from "@/components/BottomNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription } from "@/contexts/SubscriptionContext";
@@ -29,20 +30,23 @@ const ProfilePage = () => {
   const [upgradeLoading, setUpgradeLoading] = useState(false);
   const [cpf, setCpf] = useState("");
   const [cpfSaving, setCpfSaving] = useState(false);
+  const [avatarKey, setAvatarKey] = useState<string | null>(null);
+  const [avatarSaving, setAvatarSaving] = useState(false);
 
-  // Load CPF from profile
-  useState(() => {
-    if (profile) {
+  // Load avatar and CPF from profile
+  useEffect(() => {
+    if (profile && user) {
       supabase
         .from("profiles")
-        .select("cpf")
-        .eq("user_id", user?.id ?? "")
+        .select("cpf, avatar_url")
+        .eq("user_id", user.id)
         .single()
         .then(({ data }) => {
           if (data?.cpf) setCpf(data.cpf);
+          if (data?.avatar_url) setAvatarKey(data.avatar_url);
         });
     }
-  });
+  }, [profile, user]);
 
   const formatCpf = (value: string) => {
     const digits = value.replace(/\D/g, "").slice(0, 11);
@@ -84,6 +88,19 @@ const ProfilePage = () => {
       toast({ title: "Erro", description: "Não foi possível salvar o CPF.", variant: "destructive" });
     } else {
       toast({ title: "CPF salvo!", description: "Seu CPF foi atualizado com sucesso." });
+    }
+  };
+
+  const handleAvatarSelect = async (key: string) => {
+    setAvatarKey(key);
+    setAvatarSaving(true);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ avatar_url: key })
+      .eq("user_id", user?.id ?? "");
+    setAvatarSaving(false);
+    if (error) {
+      toast({ title: "Erro", description: "Não foi possível salvar o avatar.", variant: "destructive" });
     }
   };
 
@@ -238,13 +255,12 @@ const ProfilePage = () => {
         ) : (
           <div>
             <div className="flex items-center gap-4 mb-6">
-              <div className="relative">
-                <div className="w-20 h-20 rounded-full bg-cream flex items-center justify-center overflow-hidden">
+              <div className="w-20 h-20 rounded-full bg-cream flex items-center justify-center overflow-hidden">
+                {avatarKey && AVATAR_MAP[avatarKey] ? (
+                  <img src={AVATAR_MAP[avatarKey]} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
                   <User size={32} className="text-muted-foreground" />
-                </div>
-                <button className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-primary flex items-center justify-center shadow-md">
-                  <Camera size={14} className="text-primary-foreground" />
-                </button>
+                )}
               </div>
               <div>
                 <h2 className="text-lg font-bold text-foreground">{profile?.name || "Usuário"}</h2>
@@ -286,6 +302,11 @@ const ProfilePage = () => {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Avatar Selector */}
+            <div className="mb-6">
+              <AvatarSelector selected={avatarKey} onSelect={handleAvatarSelect} saving={avatarSaving} />
             </div>
 
             {/* CPF Card */}
