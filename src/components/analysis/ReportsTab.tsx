@@ -78,7 +78,8 @@ const CaloriesTooltip = ({ active, payload, label }: any) => {
 
 /* ── Donut centre label ── */
 const DonutCenterLabel = ({ viewBox, value }: any) => {
-  const { cx, cy } = viewBox;
+  const cx = viewBox?.cx ?? 0;
+  const cy = viewBox?.cy ?? 0;
   return (
     <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central">
       <tspan x={cx} dy="-0.4em" className="fill-foreground text-lg font-bold">
