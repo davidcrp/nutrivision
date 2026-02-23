@@ -1,8 +1,7 @@
 import { useMeals } from "@/contexts/MealContext";
 
 const RecipeBanner = () => {
-  const { remainingCalories, mockRecipes } = useMeals();
-  const availableRecipes = mockRecipes.filter((r) => r.calories <= remainingCalories);
+  const { remainingCalories, filteredRecipes } = useMeals();
 
   return (
     <div className="mt-5">
@@ -15,9 +14,9 @@ const RecipeBanner = () => {
         </button>
       </div>
 
-      {availableRecipes.length > 0 && (
+      {filteredRecipes.length > 0 && (
         <div className="flex gap-2 mt-3 overflow-x-auto pb-1 scrollbar-hide">
-          {availableRecipes.map((recipe) => (
+          {filteredRecipes.map((recipe) => (
             <div
               key={recipe.id}
               className="flex-shrink-0 rounded-2xl bg-cream px-4 py-3 flex items-center gap-2 animate-fade-in"
@@ -32,7 +31,7 @@ const RecipeBanner = () => {
         </div>
       )}
 
-      {availableRecipes.length === 0 && remainingCalories <= 0 && (
+      {filteredRecipes.length === 0 && remainingCalories <= 0 && (
         <p className="text-xs text-muted-foreground mt-2 text-center animate-fade-in">
           🎉 Você atingiu sua meta diária!
         </p>
