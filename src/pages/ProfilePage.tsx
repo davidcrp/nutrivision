@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { User, Mail, Lock, Eye, EyeOff, Check, Crown, Palette, ChevronRight, LogOut, Camera } from "lucide-react";
 import BottomNav from "@/components/BottomNav";
+import { useAuth } from "@/contexts/AuthContext";
 
 type ThemeKey = "default" | "ocean" | "sunset" | "forest";
 
@@ -42,7 +43,7 @@ const plans = [
 ];
 
 const ProfilePage = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { user, isLoggedIn, login, logout } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState<ThemeKey>("default");
@@ -52,7 +53,18 @@ const ProfilePage = () => {
 
   const handleAuth = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoggedIn(true);
+    login({
+      name: isSignUp ? name : (name || "Usuário"),
+      email: email || "usuario@email.com",
+    });
+  };
+
+  const handleLogout = () => {
+    logout();
+    setName("");
+    setEmail("");
+    setPassword("");
+    applyTheme("default");
   };
 
   const applyTheme = (key: ThemeKey) => {
@@ -68,9 +80,7 @@ const ProfilePage = () => {
         <h1 className="text-xl font-bold text-foreground mb-5">Perfil</h1>
 
         {!isLoggedIn ? (
-          /* AUTH FORM */
           <div>
-            {/* Avatar placeholder */}
             <div className="flex flex-col items-center mb-6">
               <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center">
                 <User size={40} className="text-muted-foreground" />
@@ -89,6 +99,7 @@ const ProfilePage = () => {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Seu nome"
+                    required
                     className="w-full rounded-2xl bg-muted py-3.5 pl-11 pr-4 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/30"
                   />
                 </div>
@@ -100,6 +111,7 @@ const ProfilePage = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Email"
+                  required
                   className="w-full rounded-2xl bg-muted py-3.5 pl-11 pr-4 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/30"
                 />
               </div>
@@ -110,6 +122,7 @@ const ProfilePage = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Senha"
+                  required
                   className="w-full rounded-2xl bg-muted py-3.5 pl-11 pr-11 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/30"
                 />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2">
@@ -129,9 +142,7 @@ const ProfilePage = () => {
             </p>
           </div>
         ) : (
-          /* LOGGED IN PROFILE */
           <div>
-            {/* User Info */}
             <div className="flex items-center gap-4 mb-6">
               <div className="relative">
                 <div className="w-20 h-20 rounded-full bg-cream flex items-center justify-center overflow-hidden">
@@ -142,8 +153,8 @@ const ProfilePage = () => {
                 </button>
               </div>
               <div>
-                <h2 className="text-lg font-bold text-foreground">{name || "Maria"}</h2>
-                <p className="text-xs text-muted-foreground">{email || "maria@email.com"}</p>
+                <h2 className="text-lg font-bold text-foreground">{user?.name}</h2>
+                <p className="text-xs text-muted-foreground">{user?.email}</p>
                 <span className="inline-block mt-1 rounded-full bg-primary/10 px-3 py-0.5 text-[10px] font-semibold text-primary">Plano Grátis</span>
               </div>
             </div>
@@ -225,7 +236,6 @@ const ProfilePage = () => {
               </div>
             </div>
 
-            {/* Settings shortcuts */}
             <div className="space-y-2">
               {["Metas nutricionais", "Notificações", "Privacidade", "Ajuda"].map((item) => (
                 <button key={item} className="flex items-center justify-between w-full rounded-2xl bg-cream p-4 hover:bg-cream-dark transition-colors">
@@ -236,10 +246,7 @@ const ProfilePage = () => {
             </div>
 
             <button
-              onClick={() => {
-                setIsLoggedIn(false);
-                applyTheme("default");
-              }}
+              onClick={handleLogout}
               className="flex items-center justify-center gap-2 w-full mt-5 rounded-2xl bg-destructive/10 py-3.5 text-destructive font-semibold text-sm hover:bg-destructive/20 transition-colors"
             >
               <LogOut size={16} />
