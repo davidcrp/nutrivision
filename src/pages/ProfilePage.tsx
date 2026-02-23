@@ -27,6 +27,7 @@ const ProfilePage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [upgradeLoading, setUpgradeLoading] = useState(false);
   const [cpf, setCpf] = useState("");
   const [cpfSaving, setCpfSaving] = useState(false);
@@ -255,12 +256,20 @@ const ProfilePage = () => {
         ) : (
           <div>
             <div className="flex items-center gap-4 mb-6">
-              <div className="w-20 h-20 rounded-full bg-cream flex items-center justify-center overflow-hidden">
-                {avatarKey && AVATAR_MAP[avatarKey] ? (
-                  <img src={AVATAR_MAP[avatarKey]} alt="Avatar" className="w-full h-full object-cover" />
-                ) : (
-                  <User size={32} className="text-muted-foreground" />
-                )}
+              <div className="relative">
+                <div className="w-20 h-20 rounded-full bg-cream flex items-center justify-center overflow-hidden">
+                  {avatarKey && AVATAR_MAP[avatarKey] ? (
+                    <img src={AVATAR_MAP[avatarKey]} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    <User size={32} className="text-muted-foreground" />
+                  )}
+                </div>
+                <button
+                  onClick={() => setShowAvatarPicker(!showAvatarPicker)}
+                  className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-primary flex items-center justify-center shadow-md"
+                >
+                  <Camera size={14} className="text-primary-foreground" />
+                </button>
               </div>
               <div>
                 <h2 className="text-lg font-bold text-foreground">{profile?.name || "Usuário"}</h2>
@@ -275,39 +284,12 @@ const ProfilePage = () => {
               </div>
             </div>
 
-            {/* Theme Selector */}
-            <div className="mb-6">
-              <div className="flex items-center gap-2 mb-3">
-                <Palette size={16} className="text-primary" />
-                <h3 className="text-sm font-semibold text-foreground">Personalizar cores</h3>
+            {/* Avatar Selector - toggled by edit button */}
+            {showAvatarPicker && (
+              <div className="mb-6">
+                <AvatarSelector selected={avatarKey} onSelect={handleAvatarSelect} saving={avatarSaving} />
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                {(Object.keys(themes) as ThemeKey[]).map((key) => (
-                  <button
-                    key={key}
-                    onClick={() => applyTheme(key)}
-                    className={`rounded-2xl p-3 text-left transition-all ${
-                      selectedTheme === key ? "ring-2 ring-primary bg-cream" : "bg-muted hover:bg-cream"
-                    }`}
-                  >
-                    <div className="flex gap-1.5 mb-2">
-                      {themes[key].preview.map((color, i) => (
-                        <div key={i} className="w-5 h-5 rounded-full" style={{ backgroundColor: color }} />
-                      ))}
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-foreground">{themes[key].name}</span>
-                      {selectedTheme === key && <Check size={14} className="text-primary" />}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Avatar Selector */}
-            <div className="mb-6">
-              <AvatarSelector selected={avatarKey} onSelect={handleAvatarSelect} saving={avatarSaving} />
-            </div>
+            )}
 
             {/* CPF Card */}
             <div className="mb-6 rounded-2xl bg-cream p-4">
