@@ -1,8 +1,8 @@
 import { useAuth } from "@/contexts/AuthContext";
 
 const GreetingHeader = () => {
-  const { user, isLoggedIn } = useAuth();
-  const displayName = isLoggedIn && user?.name ? user.name : "Visitante";
+  const { profile, isLoggedIn } = useAuth();
+  const displayName = isLoggedIn && profile?.name ? profile.name : "Visitante";
 
   return (
     <div className="mt-5">

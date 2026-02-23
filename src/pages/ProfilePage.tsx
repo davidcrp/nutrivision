@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { User, Mail, Lock, Eye, EyeOff, Check, Crown, Palette, ChevronRight, LogOut, Camera } from "lucide-react";
+import { User, Mail, Lock, Eye, EyeOff, Check, Crown, Palette, ChevronRight, LogOut, Camera, Loader2 } from "lucide-react";
 import BottomNav from "@/components/BottomNav";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 type ThemeKey = "default" | "ocean" | "sunset" | "forest";
 
@@ -43,28 +44,47 @@ const plans = [
 ];
 
 const ProfilePage = () => {
-  const { user, isLoggedIn, login, logout } = useAuth();
+  const { user, profile, isLoggedIn, loading, signUp, signIn, signOut } = useAuth();
+  const { toast } = useToast();
   const [isSignUp, setIsSignUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState<ThemeKey>("default");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleAuth = (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    login({
-      name: isSignUp ? name : (name || "Usuário"),
-      email: email || "usuario@email.com",
-    });
+    setSubmitting(true);
+
+    if (isSignUp) {
+      const { error } = await signUp(email, password, name);
+      if (error) {
+        toast({ title: "Erro no cadastro", description: error, variant: "destructive" });
+      } else {
+        toast({
+          title: "Cadastro realizado!",
+          description: "Verifique seu email para confirmar a conta antes de fazer login.",
+        });
+        setIsSignUp(false);
+        setName("");
+        setPassword("");
+      }
+    } else {
+      const { error } = await signIn(email, password);
+      if (error) {
+        toast({ title: "Erro no login", description: error, variant: "destructive" });
+      }
+    }
+
+    setSubmitting(false);
   };
 
-  const handleLogout = () => {
-    logout();
-    setName("");
-    setEmail("");
-    setPassword("");
+  const handleLogout = async () => {
+    await signOut();
     applyTheme("default");
+    toast({ title: "Até logo!", description: "Você saiu da sua conta." });
   };
 
   const applyTheme = (key: ThemeKey) => {
@@ -73,6 +93,14 @@ const ProfilePage = () => {
     document.documentElement.style.setProperty("--primary", t.primary);
     document.documentElement.style.setProperty("--accent", t.accent);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="animate-spin text-primary" size={32} />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -121,15 +149,21 @@ const ProfilePage = () => {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Senha"
+                  placeholder="Senha (mínimo 6 caracteres)"
                   required
+                  minLength={6}
                   className="w-full rounded-2xl bg-muted py-3.5 pl-11 pr-11 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/30"
                 />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2">
                   {showPassword ? <EyeOff size={16} className="text-muted-foreground" /> : <Eye size={16} className="text-muted-foreground" />}
                 </button>
               </div>
-              <button type="submit" className="w-full rounded-2xl bg-primary py-3.5 text-primary-foreground font-semibold text-sm hover:opacity-90 transition-opacity">
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full rounded-2xl bg-primary py-3.5 text-primary-foreground font-semibold text-sm hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {submitting && <Loader2 size={16} className="animate-spin" />}
                 {isSignUp ? "Criar conta" : "Entrar"}
               </button>
             </form>
@@ -153,7 +187,7 @@ const ProfilePage = () => {
                 </button>
               </div>
               <div>
-                <h2 className="text-lg font-bold text-foreground">{user?.name}</h2>
+                <h2 className="text-lg font-bold text-foreground">{profile?.name || "Usuário"}</h2>
                 <p className="text-xs text-muted-foreground">{user?.email}</p>
                 <span className="inline-block mt-1 rounded-full bg-primary/10 px-3 py-0.5 text-[10px] font-semibold text-primary">Plano Grátis</span>
               </div>
