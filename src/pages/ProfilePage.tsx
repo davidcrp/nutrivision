@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { User, Mail, Lock, Eye, EyeOff, Check, Crown, Palette, ChevronRight, LogOut, Camera, Loader2, Star, Shield, CreditCard } from "lucide-react";
+import { User, Mail, Lock, Eye, EyeOff, Check, Crown, Palette, ChevronRight, LogOut, Camera, Loader2, Star, Shield, CreditCard, Moon, Sun } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import AvatarSelector, { AVATAR_MAP } from "@/components/AvatarSelector";
 import BottomNav from "@/components/BottomNav";
 import { useAuth } from "@/contexts/AuthContext";
@@ -33,6 +34,13 @@ const ProfilePage = () => {
   const [cpfSaving, setCpfSaving] = useState(false);
   const [avatarKey, setAvatarKey] = useState<string | null>(null);
   const [avatarSaving, setAvatarSaving] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => document.documentElement.classList.contains("dark"));
+
+  const toggleDarkMode = (checked: boolean) => {
+    setDarkMode(checked);
+    document.documentElement.classList.toggle("dark", checked);
+    localStorage.setItem("theme", checked ? "dark" : "light");
+  };
 
   // Load avatar and CPF from profile
   useEffect(() => {
@@ -373,6 +381,15 @@ const ProfilePage = () => {
                   )}
                 </button>
               )}
+            </div>
+
+            {/* Dark Mode Toggle */}
+            <div className="flex items-center justify-between w-full rounded-2xl bg-cream p-4 mb-2">
+              <div className="flex items-center gap-3">
+                {darkMode ? <Moon size={18} className="text-primary" /> : <Sun size={18} className="text-primary" />}
+                <span className="text-sm font-medium text-foreground">Tema Escuro</span>
+              </div>
+              <Switch checked={darkMode} onCheckedChange={toggleDarkMode} />
             </div>
 
             <div className="space-y-2">
