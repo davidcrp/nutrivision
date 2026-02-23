@@ -7,7 +7,6 @@ import {
   DrawerTitle,
   DrawerFooter,
 } from "@/components/ui/drawer";
-import { Progress } from "@/components/ui/progress";
 
 export interface FoodItem {
   food_name: string;
@@ -26,15 +25,24 @@ export interface AnalysisResult {
   items: FoodItem[];
 }
 
+export type MealType = "breakfast" | "lunch" | "snack" | "dinner";
+
 interface ResultsBottomSheetProps {
   open: boolean;
   imageUrl: string;
   result: AnalysisResult;
   saving: boolean;
-  onConfirm: (editedItems: FoodItem[]) => void;
+  onConfirm: (editedItems: FoodItem[], mealType: MealType) => void;
   onRetry: () => void;
   onClose: () => void;
 }
+
+const mealTypeOptions: { value: MealType; label: string; emoji: string }[] = [
+  { value: "breakfast", label: "Café", emoji: "☕" },
+  { value: "lunch", label: "Almoço", emoji: "🍛" },
+  { value: "snack", label: "Lanche", emoji: "🍎" },
+  { value: "dinner", label: "Jantar", emoji: "🍽️" },
+];
 
 const ResultsBottomSheet = ({
   open,
@@ -47,6 +55,7 @@ const ResultsBottomSheet = ({
 }: ResultsBottomSheetProps) => {
   const [items, setItems] = useState<FoodItem[]>(result.items);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [selectedMealType, setSelectedMealType] = useState<MealType | null>(null);
 
   const totals = items.reduce(
     (acc, item) => ({
@@ -76,8 +85,6 @@ const ResultsBottomSheet = ({
     );
   };
 
-  // Max values for progress bars (daily targets as reference)
-  const maxCal = 2500;
   const maxMacro = 200;
 
   const macros = [
@@ -139,10 +146,7 @@ const ResultsBottomSheet = ({
             </h3>
             <div className="space-y-2">
               {items.map((item, index) => (
-                <div
-                  key={index}
-                  className="rounded-2xl bg-card border border-border p-3"
-                >
+                <div key={index} className="rounded-2xl bg-card border border-border p-3">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <p className="text-sm font-semibold text-foreground">{item.food_name}</p>
@@ -157,9 +161,7 @@ const ResultsBottomSheet = ({
                             className="w-16 text-xs bg-muted rounded-lg px-2 py-1 text-foreground border border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                           />
                         ) : (
-                          <span className="text-xs text-muted-foreground">
-                            {item.weight_grams}g
-                          </span>
+                          <span className="text-xs text-muted-foreground">{item.weight_grams}g</span>
                         )}
                         <button
                           onClick={() => setEditingIndex(editingIndex === index ? null : index)}
@@ -182,13 +184,34 @@ const ResultsBottomSheet = ({
               ))}
             </div>
           </div>
+
+          {/* Meal type selector */}
+          <div>
+            <h3 className="text-sm font-semibold text-foreground mb-2">Qual foi a refeição?</h3>
+            <div className="grid grid-cols-4 gap-2">
+              {mealTypeOptions.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setSelectedMealType(opt.value)}
+                  className={`flex flex-col items-center gap-1 rounded-2xl py-3 px-2 text-xs font-medium transition-all duration-200 ${
+                    selectedMealType === opt.value
+                      ? "bg-primary text-primary-foreground shadow-md scale-105"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  }`}
+                >
+                  <span className="text-base">{opt.emoji}</span>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         <DrawerFooter className="pt-2">
           <button
-            onClick={() => onConfirm(items)}
-            disabled={saving}
-            className="w-full rounded-2xl bg-primary py-4 text-primary-foreground font-semibold text-sm hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+            onClick={() => selectedMealType && onConfirm(items, selectedMealType)}
+            disabled={saving || !selectedMealType}
+            className="w-full rounded-2xl bg-primary py-4 text-primary-foreground font-semibold text-sm hover:opacity-90 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
           >
             {saving ? (
               <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />

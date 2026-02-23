@@ -2,12 +2,14 @@ import { useState, useRef } from "react";
 import { Camera, Image, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useMeals } from "@/contexts/MealContext";
 import { useToast } from "@/hooks/use-toast";
 import BottomNav from "@/components/BottomNav";
 import ScannerModal from "@/components/ScannerModal";
 import ResultsBottomSheet, {
   type FoodItem,
   type AnalysisResult,
+  type MealType,
 } from "@/components/ResultsBottomSheet";
 
 const mockAnalysisResult: AnalysisResult = {
@@ -34,11 +36,11 @@ const CameraPage = () => {
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const { user } = useAuth();
+  const { addMeal } = useMeals();
   const { toast } = useToast();
 
   const analyzeFoodImage = async (file: File): Promise<AnalysisResult> => {
     try {
-      // Upload image to storage
       let imageUrl: string | null = null;
       if (user) {
         const ext = file.name.split(".").pop();
@@ -54,7 +56,6 @@ const CameraPage = () => {
         }
       }
 
-      // Call AI edge function
       if (imageUrl) {
         const { data, error } = await supabase.functions.invoke("analyze-meal", {
           body: { imageUrl },
@@ -67,7 +68,6 @@ const CameraPage = () => {
         }
       }
 
-      // Fallback to mock if AI fails
       await new Promise((resolve) => setTimeout(resolve, 2000));
       return mockAnalysisResult;
     } catch (err) {
@@ -92,29 +92,9 @@ const CameraPage = () => {
     setShowResults(true);
   };
 
-  const handleConfirm = async (editedItems: FoodItem[]) => {
-    if (!user) {
-      toast({ title: "Faça login para salvar refeições", variant: "destructive" });
-      return;
-    }
-
+  const handleConfirm = async (editedItems: FoodItem[], mealType: MealType) => {
     setSaving(true);
     try {
-      let imageUrl: string | null = null;
-      if (imageFile) {
-        const ext = imageFile.name.split(".").pop();
-        const path = `${user.id}/${Date.now()}.${ext}`;
-        const { error: uploadError } = await supabase.storage
-          .from("meal-photos")
-          .upload(path, imageFile);
-        if (!uploadError) {
-          const { data: urlData } = supabase.storage
-            .from("meal-photos")
-            .getPublicUrl(path);
-          imageUrl = urlData.publicUrl;
-        }
-      }
-
       const totals = editedItems.reduce(
         (acc, item) => ({
           calories: acc.calories + item.calories,
@@ -125,27 +105,63 @@ const CameraPage = () => {
         { calories: 0, protein: 0, carbs: 0, fat: 0 }
       );
 
-      const { data: meal, error: mealError } = await supabase
-        .from("meals")
-        .insert({
-          user_id: user.id,
-          meal_type: "lunch",
-          image_url: imageUrl,
-          total_calories: totals.calories,
-          total_protein: totals.protein,
-          total_carbs: totals.carbs,
-          total_fat: totals.fat,
-          ai_confidence_score: 85,
-          is_verified: true,
-        })
-        .select("id")
-        .single();
+      // Add to local state immediately
+      addMeal({
+        mealType,
+        calories: totals.calories,
+        protein: totals.protein,
+        carbs: totals.carbs,
+        fat: totals.fat,
+        items: editedItems.map((i) => i.food_name),
+        imageUrl: imagePreview || undefined,
+      });
 
-      if (mealError) throw mealError;
+      // Save to DB if logged in
+      if (user) {
+        let dbImageUrl: string | null = null;
+        if (imageFile) {
+          const ext = imageFile.name.split(".").pop();
+          const path = `${user.id}/${Date.now()}.${ext}`;
+          const { error: uploadError } = await supabase.storage
+            .from("meal-photos")
+            .upload(path, imageFile);
+          if (!uploadError) {
+            const { data: urlData } = supabase.storage
+              .from("meal-photos")
+              .getPublicUrl(path);
+            dbImageUrl = urlData.publicUrl;
+          }
+        }
 
-      const items = editedItems.map((item) => ({ meal_id: meal.id, ...item }));
-      const { error: itemsError } = await supabase.from("meal_items").insert(items);
-      if (itemsError) throw itemsError;
+        const mealTypeMap: Record<MealType, string> = {
+          breakfast: "breakfast",
+          lunch: "lunch",
+          snack: "snack",
+          dinner: "dinner",
+        };
+
+        const { data: meal, error: mealError } = await supabase
+          .from("meals")
+          .insert({
+            user_id: user.id,
+            meal_type: mealTypeMap[mealType],
+            image_url: dbImageUrl,
+            total_calories: totals.calories,
+            total_protein: totals.protein,
+            total_carbs: totals.carbs,
+            total_fat: totals.fat,
+            ai_confidence_score: 85,
+            is_verified: true,
+          })
+          .select("id")
+          .single();
+
+        if (mealError) throw mealError;
+
+        const items = editedItems.map((item) => ({ meal_id: meal.id, ...item }));
+        const { error: itemsError } = await supabase.from("meal_items").insert(items);
+        if (itemsError) throw itemsError;
+      }
 
       toast({ title: "Refeição salva com sucesso! ✅" });
       resetState();
@@ -171,48 +187,25 @@ const CameraPage = () => {
       <div className="max-w-md mx-auto px-5 pt-6 pb-24">
         <h1 className="text-xl font-bold text-foreground mb-4">Escanear Refeição</h1>
 
-        {/* Hidden native file inputs */}
-        <input
-          ref={cameraInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={handleFileSelected}
-        />
-        <input
-          ref={galleryInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={handleFileSelected}
-        />
+        <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileSelected} />
+        <input ref={galleryInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelected} />
 
-        {/* Idle state */}
         <div className="rounded-3xl bg-foreground/5 border-2 border-dashed border-border aspect-[4/3] flex flex-col items-center justify-center gap-4">
           <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
             <Camera size={36} className="text-primary" />
           </div>
           <div className="text-center">
             <p className="text-sm font-semibold text-foreground">Tire uma foto da sua refeição</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Nossa IA vai identificar e contar as calorias
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">Nossa IA vai identificar e contar as calorias</p>
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3 mt-5">
-          <button
-            onClick={() => cameraInputRef.current?.click()}
-            className="flex items-center justify-center gap-2 rounded-2xl bg-primary py-4 text-primary-foreground font-semibold text-sm hover:opacity-90 transition-opacity"
-          >
+          <button onClick={() => cameraInputRef.current?.click()} className="flex items-center justify-center gap-2 rounded-2xl bg-primary py-4 text-primary-foreground font-semibold text-sm hover:opacity-90 transition-opacity">
             <Camera size={18} />
             Tirar Foto
           </button>
-          <button
-            onClick={() => galleryInputRef.current?.click()}
-            className="flex items-center justify-center gap-2 rounded-2xl bg-cream py-4 text-foreground font-semibold text-sm hover:bg-cream-dark transition-colors"
-          >
+          <button onClick={() => galleryInputRef.current?.click()} className="flex items-center justify-center gap-2 rounded-2xl bg-cream py-4 text-foreground font-semibold text-sm hover:bg-cream-dark transition-colors">
             <Image size={18} />
             Galeria
           </button>
@@ -221,9 +214,7 @@ const CameraPage = () => {
         <div className="mt-6 rounded-2xl bg-cream p-4">
           <div className="flex items-center gap-2 mb-2">
             <Zap size={14} className="text-accent" />
-            <h3 className="text-sm font-semibold text-foreground">
-              Dicas para melhor resultado
-            </h3>
+            <h3 className="text-sm font-semibold text-foreground">Dicas para melhor resultado</h3>
           </div>
           <ul className="text-xs text-muted-foreground space-y-1.5 ml-5 list-disc">
             <li>Use boa iluminação natural</li>
@@ -234,12 +225,8 @@ const CameraPage = () => {
         </div>
       </div>
 
-      {/* Scanner modal */}
-      {scanning && imagePreview && (
-        <ScannerModal imageUrl={imagePreview} onClose={resetState} />
-      )}
+      {scanning && imagePreview && <ScannerModal imageUrl={imagePreview} onClose={resetState} />}
 
-      {/* Results bottom sheet */}
       {analysisResult && imagePreview && (
         <ResultsBottomSheet
           open={showResults}
