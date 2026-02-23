@@ -53,7 +53,7 @@ serve(async (req) => {
     // Fetch profile
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("name, asaas_customer_id")
+      .select("name, asaas_customer_id, cpf")
       .eq("user_id", userId)
       .single();
 
@@ -74,10 +74,18 @@ serve(async (req) => {
     let customerId = profile.asaas_customer_id;
 
     if (!customerId) {
+      const cpf = profile.cpf || body.cpfCnpj;
+      if (!cpf || cpf.length !== 11) {
+        return new Response(
+          JSON.stringify({ error: "CPF não cadastrado. Atualize seu CPF no perfil antes de assinar." }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       const customerPayload = {
         name: profile.name || "Usuário NutriScan",
         email: userEmail,
-        cpfCnpj: body.cpfCnpj || "24971563792",
+        cpfCnpj: cpf,
         externalReference: userId,
         notificationDisabled: true,
       };
