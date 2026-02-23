@@ -146,10 +146,10 @@ const CameraPage = () => {
             user_id: user.id,
             meal_type: mealTypeMap[mealType],
             image_url: dbImageUrl,
-            total_calories: totals.calories,
-            total_protein: totals.protein,
-            total_carbs: totals.carbs,
-            total_fat: totals.fat,
+            total_calories: Math.round(totals.calories),
+            total_protein: Math.round(totals.protein * 10) / 10,
+            total_carbs: Math.round(totals.carbs * 10) / 10,
+            total_fat: Math.round(totals.fat * 10) / 10,
             ai_confidence_score: 85,
             is_verified: true,
           })
@@ -158,7 +158,15 @@ const CameraPage = () => {
 
         if (mealError) throw mealError;
 
-        const items = editedItems.map((item) => ({ meal_id: meal.id, ...item }));
+      const items = editedItems.map((item) => ({
+        meal_id: meal.id,
+        food_name: item.food_name,
+        weight_grams: Math.round(item.weight_grams),
+        calories: Math.round(item.calories),
+        protein: Math.round(item.protein * 10) / 10,
+        carbs: Math.round(item.carbs * 10) / 10,
+        fat: Math.round(item.fat * 10) / 10,
+      }));
         const { error: itemsError } = await supabase.from("meal_items").insert(items);
         if (itemsError) throw itemsError;
       }
