@@ -108,11 +108,15 @@ const CameraPage = () => {
       // Add to local state immediately
       addMeal({
         mealType,
-        calories: totals.calories,
-        protein: totals.protein,
-        carbs: totals.carbs,
-        fat: totals.fat,
-        items: editedItems.map((i) => i.food_name),
+        items: editedItems.map((i) => ({
+          id: crypto.randomUUID(),
+          food_name: i.food_name,
+          weight_grams: i.weight_grams,
+          calories: i.calories,
+          protein: i.protein,
+          carbs: i.carbs,
+          fat: i.fat,
+        })),
         imageUrl: imagePreview || undefined,
       });
 

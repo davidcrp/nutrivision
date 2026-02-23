@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { Check, ChevronRight } from "lucide-react";
 import { useMeals, type LoggedMeal } from "@/contexts/MealContext";
+import MealDetailSheet from "@/components/MealDetailSheet";
 
 const mealSlots: { type: LoggedMeal["mealType"]; name: string; emoji: string }[] = [
   { type: "breakfast", name: "Café da Manhã", emoji: "☕" },
@@ -8,14 +10,25 @@ const mealSlots: { type: LoggedMeal["mealType"]; name: string; emoji: string }[]
   { type: "dinner", name: "Jantar", emoji: "🍽️" },
 ];
 
+const mealTypeLabels: Record<LoggedMeal["mealType"], string> = {
+  breakfast: "Café da Manhã",
+  lunch: "Almoço",
+  snack: "Lanche",
+  dinner: "Jantar",
+};
+
 const MealsGrid = () => {
   const { loggedMeals } = useMeals();
+  const [selectedType, setSelectedType] = useState<LoggedMeal["mealType"] | null>(null);
 
-  const getMealCalories = (type: LoggedMeal["mealType"]) => {
-    return loggedMeals
-      .filter((m) => m.mealType === type)
-      .reduce((sum, m) => sum + m.calories, 0);
-  };
+  const getMealsForType = (type: LoggedMeal["mealType"]) =>
+    loggedMeals.filter((m) => m.mealType === type);
+
+  const getCaloriesForType = (type: LoggedMeal["mealType"]) =>
+    getMealsForType(type).reduce((sum, m) => sum + m.items.reduce((s, i) => s + i.calories, 0), 0);
+
+  const selectedMeals = selectedType ? getMealsForType(selectedType) : [];
+  const selectedLabel = selectedType ? mealTypeLabels[selectedType] : "";
 
   return (
     <div className="mt-6">
@@ -25,15 +38,16 @@ const MealsGrid = () => {
       </div>
       <div className="grid grid-cols-2 gap-3">
         {mealSlots.map((slot) => {
-          const cal = getMealCalories(slot.type);
+          const cal = Math.round(getCaloriesForType(slot.type));
           const filled = cal > 0;
           return (
             <button
               key={slot.type}
+              onClick={() => filled && setSelectedType(slot.type)}
               className={`flex items-center gap-3 rounded-2xl p-4 transition-all duration-300 text-left ${
                 filled
-                  ? "bg-primary/10 border border-primary/20"
-                  : "bg-cream hover:bg-cream-dark"
+                  ? "bg-primary/10 border border-primary/20 cursor-pointer"
+                  : "bg-cream hover:bg-cream-dark cursor-default"
               }`}
             >
               <span className="text-2xl">{slot.emoji}</span>
@@ -56,6 +70,13 @@ const MealsGrid = () => {
           );
         })}
       </div>
+
+      <MealDetailSheet
+        open={selectedType !== null}
+        onClose={() => setSelectedType(null)}
+        meals={selectedMeals}
+        title={`Detalhes do ${selectedLabel}`}
+      />
     </div>
   );
 };
