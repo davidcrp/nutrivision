@@ -31,7 +31,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       .select("name, avatar_url")
       .eq("user_id", userId)
       .single();
-    if (data) setProfile(data);
+    if (data) setProfile({ name: data.name, avatar_url: data.avatar_url });
   }, []);
 
   useEffect(() => {
