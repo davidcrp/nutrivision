@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { User, Mail, Lock, Eye, EyeOff, Check, Crown, Palette, ChevronRight, LogOut, Camera, Loader2, Star, Shield, CreditCard, Moon, Sun } from "lucide-react";
+import { User, Mail, Lock, Eye, EyeOff, Check, Crown, Palette, ChevronRight, LogOut, Camera, Loader2, Star, Shield, CreditCard, Moon, Sun, RotateCcw } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import AvatarSelector, { AVATAR_MAP } from "@/components/AvatarSelector";
 import BottomNav from "@/components/BottomNav";
 import { useAuth } from "@/contexts/AuthContext";
+import { useMeals } from "@/contexts/MealContext";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,6 +20,7 @@ const themes: Record<ThemeKey, { name: string; primary: string; accent: string; 
 
 const ProfilePage = () => {
   const { user, profile, isLoggedIn, loading, signUp, signIn, signOut } = useAuth();
+  const { resetOnboarding } = useMeals();
   const { subscriptionTier, openPaywall } = useSubscription();
   const { toast } = useToast();
   const [isSignUp, setIsSignUp] = useState(false);
@@ -393,6 +395,16 @@ const ProfilePage = () => {
             </div>
 
             <div className="space-y-2">
+              <button
+                onClick={resetOnboarding}
+                className="flex items-center justify-between w-full rounded-2xl bg-cream p-4 hover:bg-cream-dark transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <RotateCcw size={16} className="text-primary" />
+                  <span className="text-sm font-medium text-foreground">Refazer Quiz de Metas</span>
+                </div>
+                <ChevronRight size={16} className="text-muted-foreground" />
+              </button>
               {["Metas nutricionais", "Notificações", "Privacidade", "Ajuda"].map((item) => (
                 <button key={item} className="flex items-center justify-between w-full rounded-2xl bg-cream p-4 hover:bg-cream-dark transition-colors">
                   <span className="text-sm font-medium text-foreground">{item}</span>
