@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { User, Mail, Lock, Eye, EyeOff, Check, Crown, Palette, ChevronRight, LogOut, Camera, Loader2, Star, Shield } from "lucide-react";
+import { User, Mail, Lock, Eye, EyeOff, Check, Crown, Palette, ChevronRight, LogOut, Camera, Loader2, Star, Shield, CreditCard } from "lucide-react";
 import BottomNav from "@/components/BottomNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription } from "@/contexts/SubscriptionContext";
@@ -27,6 +27,49 @@ const ProfilePage = () => {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [upgradeLoading, setUpgradeLoading] = useState(false);
+  const [cpf, setCpf] = useState("");
+  const [cpfSaving, setCpfSaving] = useState(false);
+
+  // Load CPF from profile
+  useState(() => {
+    if (profile) {
+      supabase
+        .from("profiles")
+        .select("cpf")
+        .eq("user_id", user?.id ?? "")
+        .single()
+        .then(({ data }) => {
+          if (data?.cpf) setCpf(data.cpf);
+        });
+    }
+  });
+
+  const formatCpf = (value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, 11);
+    return digits
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+  };
+
+  const handleCpfSave = async () => {
+    const cleanCpf = cpf.replace(/\D/g, "");
+    if (cleanCpf.length !== 11) {
+      toast({ title: "CPF inválido", description: "O CPF deve ter 11 dígitos.", variant: "destructive" });
+      return;
+    }
+    setCpfSaving(true);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ cpf: cleanCpf } as any)
+      .eq("user_id", user?.id ?? "");
+    setCpfSaving(false);
+    if (error) {
+      toast({ title: "Erro", description: "Não foi possível salvar o CPF.", variant: "destructive" });
+    } else {
+      toast({ title: "CPF salvo!", description: "Seu CPF foi atualizado com sucesso." });
+    }
+  };
 
   const handleUpgrade = async () => {
     setUpgradeLoading(true);
@@ -226,6 +269,34 @@ const ProfilePage = () => {
                     </div>
                   </button>
                 ))}
+              </div>
+            </div>
+
+            {/* CPF Card */}
+            <div className="mb-6 rounded-2xl bg-cream p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <CreditCard size={16} className="text-primary" />
+                <h3 className="text-sm font-semibold text-foreground">CPF</h3>
+              </div>
+              <p className="text-xs text-muted-foreground mb-3">
+                Necessário para emissão de cobranças e assinatura PRO.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={cpf}
+                  onChange={(e) => setCpf(formatCpf(e.target.value))}
+                  placeholder="000.000.000-00"
+                  maxLength={14}
+                  className="flex-1 rounded-xl bg-muted py-2.5 px-4 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/30"
+                />
+                <button
+                  onClick={handleCpfSave}
+                  disabled={cpfSaving}
+                  className="rounded-xl bg-primary px-4 py-2.5 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
+                >
+                  {cpfSaving ? <Loader2 size={14} className="animate-spin" /> : "Salvar"}
+                </button>
               </div>
             </div>
 

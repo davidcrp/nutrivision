@@ -101,6 +101,7 @@ export type Database = {
         Row: {
           asaas_customer_id: string | null
           avatar_url: string | null
+          cpf: string | null
           created_at: string
           daily_calorie_target: number | null
           daily_carbs_target: number | null
@@ -117,6 +118,7 @@ export type Database = {
         Insert: {
           asaas_customer_id?: string | null
           avatar_url?: string | null
+          cpf?: string | null
           created_at?: string
           daily_calorie_target?: number | null
           daily_carbs_target?: number | null
@@ -133,6 +135,7 @@ export type Database = {
         Update: {
           asaas_customer_id?: string | null
           avatar_url?: string | null
+          cpf?: string | null
           created_at?: string
           daily_calorie_target?: number | null
           daily_carbs_target?: number | null
