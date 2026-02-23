@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export type SubscriptionTier = "free" | "premium";
 
@@ -8,17 +9,50 @@ interface SubscriptionContextType {
   openPaywall: () => void;
   closePaywall: () => void;
   upgradeToPremium: () => void;
-  /** Run callback if premium, otherwise open paywall */
   handlePremiumAction: (actionCallback: () => void) => void;
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType | null>(null);
 
 export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
-  const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>(() => {
-    return (localStorage.getItem("subscription_tier") as SubscriptionTier) || "free";
-  });
+  const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>(
+    () => (localStorage.getItem("subscription_tier") as SubscriptionTier) || "free"
+  );
   const [isPaywallOpen, setIsPaywallOpen] = useState(false);
+
+  // Sync subscription status from database profile
+  useEffect(() => {
+    const fetchStatus = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("subscription_status")
+        .eq("user_id", session.user.id)
+        .single();
+
+      if (profile?.subscription_status) {
+        const tier: SubscriptionTier =
+          profile.subscription_status === "premium" ? "premium" : "free";
+        setSubscriptionTier(tier);
+        localStorage.setItem("subscription_tier", tier);
+      }
+    };
+
+    fetchStatus();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        fetchStatus();
+      } else {
+        setSubscriptionTier("free");
+        localStorage.setItem("subscription_tier", "free");
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const openPaywall = useCallback(() => setIsPaywallOpen(true), []);
   const closePaywall = useCallback(() => setIsPaywallOpen(false), []);
