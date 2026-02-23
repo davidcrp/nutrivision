@@ -21,6 +21,9 @@ export interface MockRecipe {
 
 interface MealState {
   dailyGoal: number;
+  setDailyGoal: (goal: number) => void;
+  onboardingComplete: boolean;
+  completeOnboarding: (goal: number) => void;
   consumedCalories: number;
   consumedMacros: { protein: number; carbs: number; fat: number };
   loggedMeals: LoggedMeal[];
@@ -40,12 +43,28 @@ const mockRecipes: MockRecipe[] = [
 const MealContext = createContext<MealState | null>(null);
 
 export const MealProvider = ({ children }: { children: ReactNode }) => {
-  const [dailyGoal] = useState(2000);
+  const [dailyGoal, setDailyGoal] = useState(2000);
+  const [onboardingComplete, setOnboardingComplete] = useState(() => {
+    return localStorage.getItem("onboarding_complete") === "true";
+  });
   const [consumedCalories, setConsumedCalories] = useState(0);
   const [consumedMacros, setConsumedMacros] = useState({ protein: 0, carbs: 0, fat: 0 });
   const [loggedMeals, setLoggedMeals] = useState<LoggedMeal[]>([]);
 
   const remainingCalories = dailyGoal - consumedCalories;
+
+  const completeOnboarding = useCallback((goal: number) => {
+    setDailyGoal(goal);
+    setOnboardingComplete(true);
+    localStorage.setItem("onboarding_complete", "true");
+    localStorage.setItem("daily_goal", String(goal));
+  }, []);
+
+  // Restore goal from localStorage on mount
+  useState(() => {
+    const saved = localStorage.getItem("daily_goal");
+    if (saved) setDailyGoal(Number(saved));
+  });
 
   const addMeal = useCallback((meal: Omit<LoggedMeal, "id" | "loggedAt">) => {
     const newMeal: LoggedMeal = {
@@ -66,6 +85,9 @@ export const MealProvider = ({ children }: { children: ReactNode }) => {
     <MealContext.Provider
       value={{
         dailyGoal,
+        setDailyGoal,
+        onboardingComplete,
+        completeOnboarding,
         consumedCalories,
         consumedMacros,
         loggedMeals,
@@ -84,3 +106,5 @@ export const useMeals = () => {
   if (!ctx) throw new Error("useMeals must be used within MealProvider");
   return ctx;
 };
+
+export const useMealsContext = useMeals;
