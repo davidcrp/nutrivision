@@ -60,6 +60,7 @@ const SearchBar = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
   const [selectedMealType, setSelectedMealType] = useState<MealType>("lunch");
+  const [quantity, setQuantity] = useState(1);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   const { addMeal } = useMeals();
@@ -82,6 +83,7 @@ const SearchBar = () => {
 
   const handleSelect = (food: FoodItem) => {
     setSelectedFood(food);
+    setQuantity(1);
     setIsDropdownOpen(false);
   };
 
@@ -93,22 +95,28 @@ const SearchBar = () => {
         {
           id: crypto.randomUUID(),
           food_name: selectedFood.name,
-          calories: selectedFood.calories,
-          protein: selectedFood.protein,
-          carbs: selectedFood.carbs,
-          fat: selectedFood.fat,
-          weight_grams: 100,
+          calories: Math.round(selectedFood.calories * quantity),
+          protein: Math.round(selectedFood.protein * quantity * 10) / 10,
+          carbs: Math.round(selectedFood.carbs * quantity * 10) / 10,
+          fat: Math.round(selectedFood.fat * quantity * 10) / 10,
+          weight_grams: Math.round(100 * quantity),
         },
       ],
     });
     const mealLabel = mealOptions.find((m) => m.value === selectedMealType)?.label ?? "";
     toast({
       title: "✅ Adicionado!",
-      description: `${selectedFood.name} adicionado ao ${mealLabel} de hoje.`,
+      description: `${quantity > 1 ? quantity + "x " : ""}${selectedFood.name} adicionado ao ${mealLabel} de hoje.`,
     });
     setSelectedFood(null);
     setQuery("");
+    setQuantity(1);
   };
+
+  const adjustedCalories = selectedFood ? Math.round(selectedFood.calories * quantity) : 0;
+  const adjustedProtein = selectedFood ? Math.round(selectedFood.protein * quantity * 10) / 10 : 0;
+  const adjustedCarbs = selectedFood ? Math.round(selectedFood.carbs * quantity * 10) / 10 : 0;
+  const adjustedFat = selectedFood ? Math.round(selectedFood.fat * quantity * 10) / 10 : 0;
 
   return (
     <>
@@ -170,19 +178,39 @@ const SearchBar = () => {
             className="bg-popover rounded-2xl shadow-xl w-full max-w-sm p-6 animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="text-center mb-5">
+            <div className="text-center mb-4">
               <span className="text-4xl">{selectedFood.emoji}</span>
               <h3 className="text-lg font-bold text-foreground mt-2">{selectedFood.name}</h3>
               <p className="text-xs text-muted-foreground">{selectedFood.portion}</p>
             </div>
 
+            {/* Quantity selector */}
+            <div className="mb-4">
+              <p className="text-xs font-semibold text-muted-foreground mb-2">Quantidade:</p>
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  onClick={() => setQuantity(Math.max(0.5, quantity - 0.5))}
+                  className="w-9 h-9 rounded-full bg-muted text-foreground font-bold text-lg flex items-center justify-center hover:bg-muted/80 transition-colors"
+                >
+                  −
+                </button>
+                <span className="text-lg font-bold text-foreground w-12 text-center">{quantity}x</span>
+                <button
+                  onClick={() => setQuantity(Math.min(10, quantity + 0.5))}
+                  className="w-9 h-9 rounded-full bg-primary text-primary-foreground font-bold text-lg flex items-center justify-center hover:opacity-90 transition-opacity"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
             {/* Macros */}
             <div className="grid grid-cols-4 gap-2 mb-5">
               {[
-                { label: "Kcal", value: selectedFood.calories, color: "text-primary" },
-                { label: "Prot", value: `${selectedFood.protein}g`, color: "text-foreground" },
-                { label: "Carb", value: `${selectedFood.carbs}g`, color: "text-foreground" },
-                { label: "Gord", value: `${selectedFood.fat}g`, color: "text-foreground" },
+                { label: "Kcal", value: adjustedCalories, color: "text-primary" },
+                { label: "Prot", value: `${adjustedProtein}g`, color: "text-foreground" },
+                { label: "Carb", value: `${adjustedCarbs}g`, color: "text-foreground" },
+                { label: "Gord", value: `${adjustedFat}g`, color: "text-foreground" },
               ].map((m) => (
                 <div key={m.label} className="text-center rounded-xl bg-muted p-2">
                   <p className={`text-sm font-bold ${m.color}`}>{m.value}</p>
