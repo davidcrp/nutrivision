@@ -271,6 +271,13 @@ const OnboardingPage = () => {
         {/* Step 6: Result */}
         <div className={`flex-1 flex flex-col items-center justify-center transition-all duration-700 ${step === 6 ? "opacity-100 scale-100" : "opacity-0 scale-90 absolute pointer-events-none"}`}>
           <div className={`text-center transition-all duration-700 delay-200 ${showResult ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
+            <button
+              onClick={() => { setShowResult(false); setStep(5); }}
+              className="mb-4 p-2 rounded-full hover:bg-muted transition-colors self-start mx-auto flex items-center gap-1 text-sm text-muted-foreground"
+            >
+              <ChevronLeft size={18} />
+              Voltar
+            </button>
             <div className="w-20 h-20 rounded-full bg-primary/15 flex items-center justify-center mx-auto mb-6">
               <Sparkles size={36} className="text-primary" />
             </div>
