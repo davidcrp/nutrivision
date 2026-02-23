@@ -17,9 +17,10 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Sparkles, Plus, Download, RefreshCw, Trash2 } from "lucide-react";
+import { Sparkles, Plus, Download, RefreshCw, Trash2, Crown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMeals } from "@/contexts/MealContext";
+import { useSubscription } from "@/contexts/SubscriptionContext";
 import { supabase } from "@/integrations/supabase/client";
 
 // ── Strict typing matching backend response ──
@@ -103,6 +104,7 @@ const AIPlanTab = () => {
   const [newMealForm, setNewMealForm] = useState({ tipo: "", nome_prato: "", calorias: "" });
   const { toast } = useToast();
   const { dailyGoal } = useMeals();
+  const { subscriptionTier, handlePremiumAction } = useSubscription();
 
   // ── Load from localStorage on mount ──
   useEffect(() => {
@@ -230,11 +232,16 @@ const AIPlanTab = () => {
             </div>
           )}
           <Button
-            onClick={handleGenerate}
+            onClick={() => handlePremiumAction(handleGenerate)}
             className="w-full h-12 rounded-2xl text-base font-semibold bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25"
           >
             <Sparkles size={18} />
             {state === "error" ? "Tentar Novamente" : "Gerar Plano com IA"}
+            {subscriptionTier === "free" && (
+              <span className="ml-2 inline-flex items-center gap-1 bg-amber-400/20 text-amber-500 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                <Crown size={10} /> PRO
+              </span>
+            )}
           </Button>
         </div>
       </div>

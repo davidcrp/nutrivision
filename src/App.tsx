@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { MealProvider, useMealsContext } from "@/contexts/MealContext";
+import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
+import PaywallModal from "@/components/PaywallModal";
 import Index from "./pages/Index";
 import SearchPage from "./pages/SearchPage";
 import CameraPage from "./pages/CameraPage";
@@ -38,11 +40,14 @@ const App = () => (
     <TooltipProvider>
       <AuthProvider>
         <MealProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
+          <SubscriptionProvider>
+            <Toaster />
+            <Sonner />
+            <PaywallModal />
+            <BrowserRouter>
+              <AppRoutes />
+            </BrowserRouter>
+          </SubscriptionProvider>
         </MealProvider>
       </AuthProvider>
     </TooltipProvider>

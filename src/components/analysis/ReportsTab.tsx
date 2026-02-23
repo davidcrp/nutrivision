@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import { useMeals, type LoggedMeal } from "@/contexts/MealContext";
+import { useSubscription } from "@/contexts/SubscriptionContext";
 import { Card, CardContent } from "@/components/ui/card";
-import { Flame, TrendingDown, Target, Sparkles } from "lucide-react";
+import { Flame, TrendingDown, Target, Sparkles, Lock, Crown } from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -94,6 +95,8 @@ const DonutCenterLabel = ({ viewBox, value }: any) => {
 
 const ReportsTab = () => {
   const { dailyGoal, loggedMeals } = useMeals();
+  const { subscriptionTier, openPaywall } = useSubscription();
+  const isFree = subscriptionTier === "free";
   const report = useMemo(() => generateReportData(loggedMeals, dailyGoal), [loggedMeals, dailyGoal]);
   const hasData = report.daysWithData > 0;
 
@@ -160,8 +163,19 @@ const ReportsTab = () => {
         ))}
       </div>
 
-      {/* ── AI Insight Card ── */}
-      <Card className="rounded-2xl border-0 bg-gradient-to-br from-lilac/20 to-primary/10 shadow-sm">
+      {/* ── AI Insight Card (Gated) ── */}
+      <Card
+        className={`rounded-2xl border-0 bg-gradient-to-br from-lilac/20 to-primary/10 shadow-sm relative overflow-hidden ${isFree ? "cursor-pointer" : ""}`}
+        onClick={isFree ? openPaywall : undefined}
+      >
+        {isFree && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-card/60 backdrop-blur-[6px] rounded-2xl">
+            <Lock size={24} className="text-muted-foreground mb-1" />
+            <span className="inline-flex items-center gap-1 bg-amber-400/20 text-amber-600 text-[10px] font-bold px-2.5 py-1 rounded-full">
+              <Crown size={10} /> Recurso PRO
+            </span>
+          </div>
+        )}
         <CardContent className="p-4 flex gap-3 items-start">
           <div className="w-9 h-9 rounded-xl bg-lilac/20 flex items-center justify-center shrink-0 mt-0.5">
             <Sparkles size={18} className="text-lilac" />
