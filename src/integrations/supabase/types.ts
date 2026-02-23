@@ -99,6 +99,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          asaas_customer_id: string | null
           avatar_url: string | null
           created_at: string
           daily_calorie_target: number | null
@@ -108,10 +109,13 @@ export type Database = {
           goal: string | null
           id: string
           name: string
+          subscription_id: string | null
+          subscription_status: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          asaas_customer_id?: string | null
           avatar_url?: string | null
           created_at?: string
           daily_calorie_target?: number | null
@@ -121,10 +125,13 @@ export type Database = {
           goal?: string | null
           id?: string
           name?: string
+          subscription_id?: string | null
+          subscription_status?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          asaas_customer_id?: string | null
           avatar_url?: string | null
           created_at?: string
           daily_calorie_target?: number | null
@@ -134,6 +141,8 @@ export type Database = {
           goal?: string | null
           id?: string
           name?: string
+          subscription_id?: string | null
+          subscription_status?: string | null
           updated_at?: string
           user_id?: string
         }

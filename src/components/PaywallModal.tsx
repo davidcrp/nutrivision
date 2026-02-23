@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useSubscription } from "@/contexts/SubscriptionContext";
-import { Check, Crown, X } from "lucide-react";
+import { Check, Crown, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const BENEFITS = [
   "Contagem de calorias por foto (Ilimitado)",
@@ -15,9 +17,11 @@ const BENEFITS = [
 const PaywallModal = () => {
   const { isPaywallOpen, closePaywall, upgradeToPremium } = useSubscription();
   const [isAnnual, setIsAnnual] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
 
   if (!isPaywallOpen) return null;
-
+  const plan = isAnnual ? "annual" : "monthly";
   const price = isAnnual ? "199,90" : "29,90";
   const period = isAnnual ? "/ano" : "/mês";
 
@@ -102,11 +106,39 @@ const PaywallModal = () => {
 
           {/* CTA */}
           <Button
-            onClick={upgradeToPremium}
-            className="w-full h-14 rounded-2xl text-lg font-bold bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-black shadow-lg shadow-amber-500/30 animate-pulse hover:animate-none"
+            onClick={async () => {
+              setIsLoading(true);
+              try {
+                const { data, error } = await supabase.functions.invoke('create-checkout', {
+                  body: { plan },
+                });
+                if (error || !data?.paymentUrl) {
+                  throw new Error(error?.message || "Erro ao gerar pagamento");
+                }
+                window.location.href = data.paymentUrl;
+              } catch (err: any) {
+                toast({
+                  title: "Erro",
+                  description: err.message || "Não foi possível iniciar o pagamento.",
+                  variant: "destructive",
+                });
+                setIsLoading(false);
+              }
+            }}
+            disabled={isLoading}
+            className="w-full h-14 rounded-2xl text-lg font-bold bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-black shadow-lg shadow-amber-500/30 animate-pulse hover:animate-none disabled:opacity-70 disabled:animate-none"
           >
-            <Crown size={20} />
-            Assinar Agora
+            {isLoading ? (
+              <>
+                <Loader2 size={20} className="animate-spin" />
+                Gerando pagamento...
+              </>
+            ) : (
+              <>
+                <Crown size={20} />
+                Assinar Agora
+              </>
+            )}
           </Button>
 
           <p className="text-[10px] text-white/30 text-center mt-3">
