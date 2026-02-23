@@ -14,10 +14,98 @@ export type Database = {
   }
   public: {
     Tables: {
+      meal_items: {
+        Row: {
+          calories: number
+          carbs: number
+          fat: number
+          food_name: string
+          id: string
+          meal_id: string
+          protein: number
+          weight_grams: number
+        }
+        Insert: {
+          calories: number
+          carbs: number
+          fat: number
+          food_name: string
+          id?: string
+          meal_id: string
+          protein: number
+          weight_grams: number
+        }
+        Update: {
+          calories?: number
+          carbs?: number
+          fat?: number
+          food_name?: string
+          id?: string
+          meal_id?: string
+          protein?: number
+          weight_grams?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_items_meal_id_fkey"
+            columns: ["meal_id"]
+            isOneToOne: false
+            referencedRelation: "meals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meals: {
+        Row: {
+          ai_confidence_score: number | null
+          id: string
+          image_url: string | null
+          is_verified: boolean | null
+          logged_at: string
+          meal_type: string
+          total_calories: number | null
+          total_carbs: number | null
+          total_fat: number | null
+          total_protein: number | null
+          user_id: string
+        }
+        Insert: {
+          ai_confidence_score?: number | null
+          id?: string
+          image_url?: string | null
+          is_verified?: boolean | null
+          logged_at?: string
+          meal_type: string
+          total_calories?: number | null
+          total_carbs?: number | null
+          total_fat?: number | null
+          total_protein?: number | null
+          user_id: string
+        }
+        Update: {
+          ai_confidence_score?: number | null
+          id?: string
+          image_url?: string | null
+          is_verified?: boolean | null
+          logged_at?: string
+          meal_type?: string
+          total_calories?: number | null
+          total_carbs?: number | null
+          total_fat?: number | null
+          total_protein?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
           created_at: string
+          daily_calorie_target: number | null
+          daily_carbs_target: number | null
+          daily_fat_target: number | null
+          daily_protein_target: number | null
+          goal: string | null
           id: string
           name: string
           updated_at: string
@@ -26,6 +114,11 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          daily_calorie_target?: number | null
+          daily_carbs_target?: number | null
+          daily_fat_target?: number | null
+          daily_protein_target?: number | null
+          goal?: string | null
           id?: string
           name?: string
           updated_at?: string
@@ -34,6 +127,11 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string
+          daily_calorie_target?: number | null
+          daily_carbs_target?: number | null
+          daily_fat_target?: number | null
+          daily_protein_target?: number | null
+          goal?: string | null
           id?: string
           name?: string
           updated_at?: string
