@@ -10,6 +10,7 @@ import SearchPage from "./pages/SearchPage";
 import CameraPage from "./pages/CameraPage";
 import FavoritesPage from "./pages/FavoritesPage";
 import ProfilePage from "./pages/ProfilePage";
+import AnalysisPage from "./pages/AnalysisPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import NotFound from "./pages/NotFound";
 
@@ -24,6 +25,7 @@ const AppRoutes = () => {
       <Route path="/" element={onboardingComplete ? <Index /> : <Navigate to="/onboarding" replace />} />
       <Route path="/search" element={onboardingComplete ? <SearchPage /> : <Navigate to="/onboarding" replace />} />
       <Route path="/camera" element={onboardingComplete ? <CameraPage /> : <Navigate to="/onboarding" replace />} />
+      <Route path="/analysis" element={onboardingComplete ? <AnalysisPage /> : <Navigate to="/onboarding" replace />} />
       <Route path="/favorites" element={onboardingComplete ? <FavoritesPage /> : <Navigate to="/onboarding" replace />} />
       <Route path="/profile" element={onboardingComplete ? <ProfilePage /> : <Navigate to="/onboarding" replace />} />
       <Route path="*" element={<NotFound />} />
