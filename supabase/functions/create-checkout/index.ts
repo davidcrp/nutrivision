@@ -77,8 +77,9 @@ serve(async (req) => {
       const customerPayload = {
         name: profile.name || "Usuário NutriScan",
         email: userEmail,
-        cpfCnpj: "00000000000", // Placeholder - in production ask user for CPF
+        cpfCnpj: body.cpfCnpj || "24971563792",
         externalReference: userId,
+        notificationDisabled: true,
       };
       console.log("Creating Asaas customer:", JSON.stringify(customerPayload));
 
