@@ -1,4 +1,3 @@
-import healthyFood from "@/assets/healthy-food.png";
 import { useMeals } from "@/contexts/MealContext";
 
 const CircularProgress = ({ progress }: { progress: number }) => {
@@ -64,13 +63,8 @@ const DailyProgressCard = () => {
           <MacroBar label="G" value={consumedMacros.fat} max={80} color="bg-[hsl(var(--lilac))]" />
         </div>
       </div>
-      <div className="flex-shrink-0 relative ml-3">
+      <div className="flex-shrink-0 ml-3">
         <CircularProgress progress={progress} />
-        <img
-          src={healthyFood}
-          alt="Comida saudável"
-          className="absolute -bottom-2 -right-2 w-16 h-16 object-contain"
-        />
       </div>
     </div>
   );
