@@ -34,45 +34,30 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model: "google/gemini-2.5-pro",
+          max_tokens: 4096,
           messages: [
             {
               role: "system",
-              content: `You are a nutritionist AI that analyzes food photos. You MUST respond with ONLY a valid JSON object, no markdown, no explanation, no extra text.
+              content: `Você é um nutricionista especialista em análise visual de alimentos. Sua tarefa é analisar CUIDADOSAMENTE a foto enviada e identificar EXATAMENTE os alimentos visíveis.
 
-The JSON must follow this exact schema:
-{
-  "total_calories": number,
-  "total_protein": number,
-  "total_carbs": number,
-  "total_fat": number,
-  "items": [
-    {
-      "food_name": string,
-      "weight_grams": number,
-      "calories": number,
-      "protein": number,
-      "carbs": number,
-      "fat": number
-    }
-  ]
-}
+INSTRUÇÕES CRÍTICAS:
+1. OLHE com atenção para a foto. Identifique APENAS os alimentos que você REALMENTE consegue ver na imagem.
+2. NÃO invente alimentos que não estão na foto. Se você vê arroz, diga arroz. Se vê feijão, diga feijão. Se vê frango, diga frango.
+3. Estime porções REALISTAS baseadas no tamanho visual do prato. Um prato comum tem ~22cm de diâmetro.
+4. Use a Tabela TACO (Tabela Brasileira de Composição de Alimentos) como referência nutricional.
+5. Nomes dos alimentos DEVEM ser em português brasileiro (pt-BR).
+6. Valores de macronutrientes em gramas, calorias em kcal.
+7. Os totais DEVEM ser a soma exata dos itens individuais.
 
-Rules:
-- Identify every visible food item on the plate/photo.
-- Estimate realistic portion sizes in grams.
-- Use standard nutritional data (TACO table for Brazilian foods when applicable).
-- All macro values are in grams, calories in kcal.
-- food_name should be in Portuguese (pt-BR).
-- totals must be the sum of all items.
-- Respond with ONLY the JSON, nothing else.`,
+IMPORTANTE: Seja preciso. É melhor identificar poucos alimentos corretamente do que muitos incorretamente.`,
             },
             {
               role: "user",
               content: [
                 {
                   type: "text",
-                  text: "Analyze this meal photo and return the nutritional breakdown as JSON.",
+                  text: "Analise esta foto de refeição. Identifique CADA alimento visível na imagem, estime o peso em gramas e calcule os valores nutricionais. Retorne os dados estruturados.",
                 },
                 {
                   type: "image_url",
@@ -87,44 +72,32 @@ Rules:
               function: {
                 name: "return_meal_analysis",
                 description:
-                  "Return the structured nutritional analysis of a meal photo.",
+                  "Retorna a análise nutricional estruturada dos alimentos identificados na foto.",
                 parameters: {
                   type: "object",
                   properties: {
-                    total_calories: { type: "number" },
-                    total_protein: { type: "number" },
-                    total_carbs: { type: "number" },
-                    total_fat: { type: "number" },
+                    total_calories: { type: "number", description: "Soma total de calorias (kcal) de todos os itens" },
+                    total_protein: { type: "number", description: "Soma total de proteínas (g)" },
+                    total_carbs: { type: "number", description: "Soma total de carboidratos (g)" },
+                    total_fat: { type: "number", description: "Soma total de gorduras (g)" },
                     items: {
                       type: "array",
+                      description: "Lista dos alimentos REALMENTE visíveis na foto",
                       items: {
                         type: "object",
                         properties: {
-                          food_name: { type: "string" },
-                          weight_grams: { type: "number" },
-                          calories: { type: "number" },
-                          protein: { type: "number" },
-                          carbs: { type: "number" },
-                          fat: { type: "number" },
+                          food_name: { type: "string", description: "Nome do alimento em pt-BR (ex: Arroz branco, Feijão carioca, Peito de frango grelhado)" },
+                          weight_grams: { type: "number", description: "Peso estimado em gramas baseado no tamanho visual" },
+                          calories: { type: "number", description: "Calorias em kcal" },
+                          protein: { type: "number", description: "Proteínas em gramas" },
+                          carbs: { type: "number", description: "Carboidratos em gramas" },
+                          fat: { type: "number", description: "Gorduras em gramas" },
                         },
-                        required: [
-                          "food_name",
-                          "weight_grams",
-                          "calories",
-                          "protein",
-                          "carbs",
-                          "fat",
-                        ],
+                        required: ["food_name", "weight_grams", "calories", "protein", "carbs", "fat"],
                       },
                     },
                   },
-                  required: [
-                    "total_calories",
-                    "total_protein",
-                    "total_carbs",
-                    "total_fat",
-                    "items",
-                  ],
+                  required: ["total_calories", "total_protein", "total_carbs", "total_fat", "items"],
                 },
               },
             },
