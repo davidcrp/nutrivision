@@ -1,10 +1,17 @@
 import { useState } from "react";
-import { ChevronDown } from "lucide-react";
-import { useMeals } from "@/contexts/MealContext";
+import { ChevronDown, Clock, Users, ChevronRight } from "lucide-react";
+import { useMeals, type MockRecipe } from "@/contexts/MealContext";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 
 const RecipeBanner = () => {
   const { remainingCalories, filteredRecipes } = useMeals();
   const [expanded, setExpanded] = useState(false);
+  const [selectedRecipe, setSelectedRecipe] = useState<MockRecipe | null>(null);
 
   return (
     <div className="mt-5">
@@ -34,16 +41,18 @@ const RecipeBanner = () => {
         {filteredRecipes.length > 0 ? (
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
             {filteredRecipes.map((recipe) => (
-              <div
+              <button
                 key={recipe.id}
-                className="flex-shrink-0 rounded-2xl bg-cream px-4 py-3 flex items-center gap-2"
+                onClick={() => setSelectedRecipe(recipe)}
+                className="flex-shrink-0 rounded-2xl bg-cream px-4 py-3 flex items-center gap-2 hover:bg-cream-dark transition-colors text-left group"
               >
                 <span className="text-lg">{recipe.emoji}</span>
                 <div>
                   <p className="text-xs font-semibold text-foreground whitespace-nowrap">{recipe.name}</p>
                   <p className="text-[10px] text-muted-foreground">{recipe.calories} kcal</p>
                 </div>
-              </div>
+                <ChevronRight size={14} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-1" />
+              </button>
             ))}
           </div>
         ) : (
@@ -52,6 +61,63 @@ const RecipeBanner = () => {
           </p>
         )}
       </div>
+
+      {/* Recipe Detail Drawer */}
+      <Drawer open={selectedRecipe !== null} onOpenChange={(o) => !o && setSelectedRecipe(null)}>
+        <DrawerContent className="max-h-[85vh]">
+          {selectedRecipe && (
+            <>
+              <DrawerHeader className="pb-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-4xl">{selectedRecipe.emoji}</span>
+                  <div>
+                    <DrawerTitle className="text-lg">{selectedRecipe.name}</DrawerTitle>
+                    <div className="flex items-center gap-3 mt-1">
+                      <span className="text-xs font-semibold text-primary">{selectedRecipe.calories} kcal</span>
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Clock size={12} /> {selectedRecipe.prepTime}
+                      </span>
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Users size={12} /> {selectedRecipe.servings} {selectedRecipe.servings === 1 ? "porção" : "porções"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </DrawerHeader>
+
+              <div className="px-4 pb-6 overflow-y-auto space-y-5">
+                {/* Ingredients */}
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground mb-2">🧾 Ingredientes</h3>
+                  <ul className="space-y-1.5">
+                    {selectedRecipe.ingredients.map((ing, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                        <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
+                        {ing}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Steps */}
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground mb-2">👩‍🍳 Modo de Preparo</h3>
+                  <ol className="space-y-3">
+                    {selectedRecipe.steps.map((step, i) => (
+                      <li key={i} className="flex items-start gap-3">
+                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">
+                          {i + 1}
+                        </span>
+                        <p className="text-sm text-muted-foreground pt-0.5">{step}</p>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              </div>
+            </>
+          )}
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 };
