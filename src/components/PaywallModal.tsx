@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 const BENEFITS = [
+  "Scans ilimitados por dia (free: 3/dia)",
   "Contagem de calorias por foto (Ilimitado)",
   "Plano Alimentar Inteligente gerado por IA",
   "Relatórios avançados e insights semanais",

@@ -3,6 +3,7 @@ import { Camera, Image, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMeals } from "@/contexts/MealContext";
+import { useSubscription } from "@/contexts/SubscriptionContext";
 import { useToast } from "@/hooks/use-toast";
 import BottomNav from "@/components/BottomNav";
 import ScannerModal from "@/components/ScannerModal";
@@ -37,7 +38,39 @@ const CameraPage = () => {
 
   const { user } = useAuth();
   const { addMeal } = useMeals();
+  const { subscriptionTier, openPaywall } = useSubscription();
   const { toast } = useToast();
+
+  const FREE_DAILY_SCAN_LIMIT = 3;
+
+  const getTodayScans = (): number => {
+    const today = new Date().toISOString().split("T")[0];
+    const stored = localStorage.getItem("scan_count");
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed.date === today) return parsed.count;
+    }
+    return 0;
+  };
+
+  const incrementScanCount = () => {
+    const today = new Date().toISOString().split("T")[0];
+    const current = getTodayScans();
+    localStorage.setItem("scan_count", JSON.stringify({ date: today, count: current + 1 }));
+  };
+
+  const canScan = (): boolean => {
+    if (subscriptionTier === "premium") return true;
+    return getTodayScans() < FREE_DAILY_SCAN_LIMIT;
+  };
+
+  const handleScanAttempt = (inputRef: React.RefObject<HTMLInputElement | null>) => {
+    if (!canScan()) {
+      openPaywall();
+      return;
+    }
+    inputRef.current?.click();
+  };
 
   const analyzeFoodImage = async (file: File): Promise<AnalysisResult> => {
     try {
@@ -80,6 +113,7 @@ const CameraPage = () => {
   const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    incrementScanCount();
 
     setImageFile(file);
     const url = URL.createObjectURL(file);
@@ -213,15 +247,21 @@ const CameraPage = () => {
         </div>
 
         <div className="grid grid-cols-2 gap-3 mt-5">
-          <button onClick={() => cameraInputRef.current?.click()} className="flex items-center justify-center gap-2 rounded-2xl bg-primary py-4 text-primary-foreground font-semibold text-sm hover:opacity-90 transition-opacity">
+          <button onClick={() => handleScanAttempt(cameraInputRef)} className="flex items-center justify-center gap-2 rounded-2xl bg-primary py-4 text-primary-foreground font-semibold text-sm hover:opacity-90 transition-opacity">
             <Camera size={18} />
             Tirar Foto
           </button>
-          <button onClick={() => galleryInputRef.current?.click()} className="flex items-center justify-center gap-2 rounded-2xl bg-cream py-4 text-foreground font-semibold text-sm hover:bg-cream-dark transition-colors">
+          <button onClick={() => handleScanAttempt(galleryInputRef)} className="flex items-center justify-center gap-2 rounded-2xl bg-cream py-4 text-foreground font-semibold text-sm hover:bg-cream-dark transition-colors">
             <Image size={18} />
             Galeria
           </button>
         </div>
+
+        {subscriptionTier === "free" && (
+          <p className="text-center text-xs text-muted-foreground mt-3">
+            {getTodayScans()}/{FREE_DAILY_SCAN_LIMIT} scans gratuitos usados hoje
+          </p>
+        )}
 
         <div className="mt-6 rounded-2xl bg-cream p-4">
           <div className="flex items-center gap-2 mb-2">
