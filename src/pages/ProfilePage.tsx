@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { User, Mail, Lock, Eye, EyeOff, Check, Crown, Palette, ChevronRight, LogOut, Camera, Loader2 } from "lucide-react";
+import { User, Mail, Lock, Eye, EyeOff, Check, Crown, Palette, ChevronRight, LogOut, Camera, Loader2, Star, Shield } from "lucide-react";
 import BottomNav from "@/components/BottomNav";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSubscription } from "@/contexts/SubscriptionContext";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 type ThemeKey = "default" | "ocean" | "sunset" | "forest";
 
@@ -13,38 +15,9 @@ const themes: Record<ThemeKey, { name: string; primary: string; accent: string; 
   forest: { name: "Floresta", primary: "160 50% 40%", accent: "35 70% 55%", preview: ["#339977", "#c99540", "#5dba90"] },
 };
 
-const plans = [
-  {
-    id: "free",
-    name: "Grátis",
-    price: "R$ 0",
-    period: "/mês",
-    features: ["Contagem manual de calorias", "Até 3 refeições/dia", "Histórico de 7 dias"],
-    highlighted: false,
-    cta: "Plano Atual",
-  },
-  {
-    id: "pro",
-    name: "Pro",
-    price: "R$ 19,90",
-    period: "/mês",
-    features: ["Escaneamento por IA ilimitado", "Refeições ilimitadas", "Histórico completo", "Receitas personalizadas"],
-    highlighted: true,
-    cta: "Assinar Pro",
-  },
-  {
-    id: "premium",
-    name: "Premium",
-    price: "R$ 39,90",
-    period: "/mês",
-    features: ["Tudo do Pro", "Plano alimentar com IA", "Suporte nutricional", "Sem anúncios", "Relatórios avançados"],
-    highlighted: false,
-    cta: "Assinar Premium",
-  },
-];
-
 const ProfilePage = () => {
   const { user, profile, isLoggedIn, loading, signUp, signIn, signOut } = useAuth();
+  const { subscriptionTier, openPaywall } = useSubscription();
   const { toast } = useToast();
   const [isSignUp, setIsSignUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -53,6 +26,34 @@ const ProfilePage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [upgradeLoading, setUpgradeLoading] = useState(false);
+
+  const handleUpgrade = async () => {
+    setUpgradeLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-checkout", {
+        body: { plan: "monthly" },
+      });
+      if (error || !data?.paymentUrl) {
+        throw new Error(error?.message || "Erro ao gerar pagamento");
+      }
+      window.location.href = data.paymentUrl;
+    } catch (err: any) {
+      toast({
+        title: "Erro",
+        description: err.message || "Não foi possível iniciar o pagamento.",
+        variant: "destructive",
+      });
+      setUpgradeLoading(false);
+    }
+  };
+
+  const handleManageSubscription = () => {
+    toast({
+      title: "Gerenciar Assinatura",
+      description: "Para alterar seus dados de pagamento ou cancelar, entre em contato com o suporte ou acesse o portal web.",
+    });
+  };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -189,7 +190,13 @@ const ProfilePage = () => {
               <div>
                 <h2 className="text-lg font-bold text-foreground">{profile?.name || "Usuário"}</h2>
                 <p className="text-xs text-muted-foreground">{user?.email}</p>
-                <span className="inline-block mt-1 rounded-full bg-primary/10 px-3 py-0.5 text-[10px] font-semibold text-primary">Plano Grátis</span>
+                {subscriptionTier === "premium" ? (
+                  <span className="inline-flex items-center gap-1 mt-1 rounded-full bg-amber-500/15 px-3 py-0.5 text-[10px] font-semibold text-amber-500">
+                    <Crown size={10} /> PRO
+                  </span>
+                ) : (
+                  <span className="inline-block mt-1 rounded-full bg-muted px-3 py-0.5 text-[10px] font-semibold text-muted-foreground">Plano Grátis</span>
+                )}
               </div>
             </div>
 
@@ -222,52 +229,60 @@ const ProfilePage = () => {
               </div>
             </div>
 
-            {/* Plans */}
-            <div className="mb-6">
-              <div className="flex items-center gap-2 mb-3">
-                <Crown size={16} className="text-accent" />
-                <h3 className="text-sm font-semibold text-foreground">Planos</h3>
-              </div>
-              <div className="space-y-3">
-                {plans.map((plan) => (
-                  <div
-                    key={plan.id}
-                    className={`rounded-2xl p-4 transition-all ${
-                      plan.highlighted ? "bg-primary/10 ring-2 ring-primary" : "bg-cream"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <h4 className="text-sm font-bold text-foreground">{plan.name}</h4>
-                        <p className="text-lg font-bold text-foreground">
-                          {plan.price}
-                          <span className="text-xs font-normal text-muted-foreground">{plan.period}</span>
-                        </p>
-                      </div>
-                      {plan.highlighted && (
-                        <span className="rounded-full bg-primary px-3 py-1 text-[10px] font-bold text-primary-foreground">Popular</span>
-                      )}
-                    </div>
-                    <ul className="space-y-1 mb-3">
-                      {plan.features.map((f) => (
-                        <li key={f} className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Check size={12} className="text-primary flex-shrink-0" />
-                          {f}
-                        </li>
-                      ))}
-                    </ul>
-                    <button
-                      className={`w-full rounded-xl py-2.5 text-xs font-semibold transition-opacity ${
-                        plan.highlighted
-                          ? "bg-primary text-primary-foreground hover:opacity-90"
-                          : "bg-muted text-foreground hover:bg-cream-dark"
-                      }`}
-                    >
-                      {plan.cta}
-                    </button>
+            {/* Plan Status Card */}
+            <div className={`mb-6 rounded-2xl p-5 transition-all ${
+              subscriptionTier === "premium"
+                ? "bg-gradient-to-br from-amber-500/10 via-amber-400/5 to-transparent ring-1 ring-amber-500/20"
+                : "bg-cream"
+            }`}>
+              <div className="flex items-center gap-3 mb-3">
+                {subscriptionTier === "premium" ? (
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center shadow-md shadow-amber-500/20">
+                    <Crown size={20} className="text-white" />
                   </div>
-                ))}
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                    <Shield size={20} className="text-muted-foreground" />
+                  </div>
+                )}
+                <div>
+                  <h3 className="text-sm font-bold text-foreground">
+                    {subscriptionTier === "premium" ? "Plano PRO Ativo" : "Plano Básico (Gratuito)"}
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    {subscriptionTier === "premium"
+                      ? "Você tem acesso total a todos os recursos de IA."
+                      : "Recursos limitados. Faça upgrade para desbloquear a IA."}
+                  </p>
+                </div>
               </div>
+
+              {subscriptionTier === "premium" ? (
+                <button
+                  onClick={handleManageSubscription}
+                  className="w-full rounded-xl py-2.5 text-xs font-semibold bg-muted text-foreground hover:bg-muted/80 transition-colors"
+                >
+                  Gerenciar Assinatura
+                </button>
+              ) : (
+                <button
+                  onClick={handleUpgrade}
+                  disabled={upgradeLoading}
+                  className="w-full rounded-xl py-2.5 text-xs font-semibold bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {upgradeLoading ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      Redirecionando...
+                    </>
+                  ) : (
+                    <>
+                      <Star size={14} />
+                      Fazer Upgrade para PRO
+                    </>
+                  )}
+                </button>
+              )}
             </div>
 
             <div className="space-y-2">
