@@ -29,7 +29,7 @@ const BottomNav = () => {
   const rightItems = navItems.slice(2);
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-popover border-t border-border/50 shadow-[0_-2px_10px_rgba(0,0,0,0.04)] z-50">
+    <nav className="fixed bottom-0 left-0 right-0 bg-popover border-t border-border/50 shadow-[0_-2px_10px_rgba(0,0,0,0.04)] z-50" translate="no">
       <div className="max-w-md mx-auto flex items-center justify-around py-2 px-4">
         {leftItems.map((item) => {
           const active = location.pathname === item.path;
