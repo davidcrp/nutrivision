@@ -62,9 +62,17 @@ function shuffleAndPick<T>(arr: T[], count: number): T[] {
   return shuffled.slice(0, count);
 }
 
+export interface MacroTargets {
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
 interface MealState {
   dailyGoal: number;
   setDailyGoal: (goal: number) => void;
+  macroTargets: MacroTargets;
+  setMacroTargets: (targets: MacroTargets) => void;
   onboardingComplete: boolean;
   completeOnboarding: (goal: number) => void;
   consumedCalories: number;
@@ -84,10 +92,19 @@ export const MealProvider = ({ children }: { children: ReactNode }) => {
     const saved = localStorage.getItem("daily_goal");
     return saved ? Number(saved) : 2000;
   });
+  const [macroTargets, setMacroTargetsState] = useState<MacroTargets>(() => {
+    const saved = localStorage.getItem("macro_targets");
+    return saved ? JSON.parse(saved) : { protein: 150, carbs: 250, fat: 80 };
+  });
   const [onboardingComplete, setOnboardingComplete] = useState(() => {
     return localStorage.getItem("onboarding_complete") === "true";
   });
   const [loggedMeals, setLoggedMeals] = useState<LoggedMeal[]>([]);
+
+  const setMacroTargets = useCallback((targets: MacroTargets) => {
+    setMacroTargetsState(targets);
+    localStorage.setItem("macro_targets", JSON.stringify(targets));
+  }, []);
 
   // STRICT MATH: all totals derived from loggedMeals items
   const { consumedCalories, consumedMacros } = useMemo(() => {
@@ -156,6 +173,8 @@ export const MealProvider = ({ children }: { children: ReactNode }) => {
       value={{
         dailyGoal,
         setDailyGoal,
+        macroTargets,
+        setMacroTargets,
         onboardingComplete,
         completeOnboarding,
         consumedCalories,

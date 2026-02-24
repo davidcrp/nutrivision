@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { User, Mail, Lock, Eye, EyeOff, Check, Crown, Palette, ChevronRight, LogOut, Camera, Loader2, Star, Shield, CreditCard, Moon, Sun, RotateCcw } from "lucide-react";
+import { User, Mail, Lock, Eye, EyeOff, Check, Crown, Palette, ChevronRight, LogOut, Camera, Loader2, Star, Shield, CreditCard, Moon, Sun, RotateCcw, Target, Bell, ShieldCheck, HelpCircle } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import AvatarSelector, { AVATAR_MAP } from "@/components/AvatarSelector";
 import BottomNav from "@/components/BottomNav";
@@ -8,6 +8,10 @@ import { useMeals } from "@/contexts/MealContext";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import NutritionGoalsModal from "@/components/profile/NutritionGoalsModal";
+import NotificationsModal from "@/components/profile/NotificationsModal";
+import PrivacyModal from "@/components/profile/PrivacyModal";
+import HelpModal from "@/components/profile/HelpModal";
 
 type ThemeKey = "default" | "ocean" | "sunset" | "forest";
 
@@ -37,6 +41,10 @@ const ProfilePage = () => {
   const [avatarKey, setAvatarKey] = useState<string | null>(null);
   const [avatarSaving, setAvatarSaving] = useState(false);
   const [darkMode, setDarkMode] = useState(() => document.documentElement.classList.contains("dark"));
+  const [goalsOpen, setGoalsOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const toggleDarkMode = (checked: boolean) => {
     setDarkMode(checked);
@@ -405,9 +413,17 @@ const ProfilePage = () => {
                 </div>
                 <ChevronRight size={16} className="text-muted-foreground" />
               </button>
-              {["Metas nutricionais", "Notificações", "Privacidade", "Ajuda"].map((item) => (
-                <button key={item} className="flex items-center justify-between w-full rounded-2xl bg-cream p-4 hover:bg-cream-dark transition-colors">
-                  <span className="text-sm font-medium text-foreground">{item}</span>
+              {[
+                { label: "Metas nutricionais", icon: Target, action: () => setGoalsOpen(true) },
+                { label: "Notificações", icon: Bell, action: () => setNotifOpen(true) },
+                { label: "Privacidade", icon: ShieldCheck, action: () => setPrivacyOpen(true) },
+                { label: "Ajuda", icon: HelpCircle, action: () => setHelpOpen(true) },
+              ].map((item) => (
+                <button key={item.label} onClick={item.action} className="flex items-center justify-between w-full rounded-2xl bg-cream p-4 hover:bg-cream-dark transition-colors">
+                  <div className="flex items-center gap-3">
+                    <item.icon size={16} className="text-primary" />
+                    <span className="text-sm font-medium text-foreground">{item.label}</span>
+                  </div>
                   <ChevronRight size={16} className="text-muted-foreground" />
                 </button>
               ))}
@@ -423,6 +439,12 @@ const ProfilePage = () => {
           </div>
         )}
       </div>
+
+      <NutritionGoalsModal open={goalsOpen} onOpenChange={setGoalsOpen} />
+      <NotificationsModal open={notifOpen} onOpenChange={setNotifOpen} />
+      <PrivacyModal open={privacyOpen} onOpenChange={setPrivacyOpen} />
+      <HelpModal open={helpOpen} onOpenChange={setHelpOpen} />
+
       <BottomNav />
     </div>
   );
