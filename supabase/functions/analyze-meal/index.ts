@@ -76,34 +76,20 @@ IMPORTANTE: Seja rigoroso. Se a imagem não contém comida, NÃO tente analisar 
             {
               type: "function",
               function: {
-                name: "return_no_food",
-                description: "Indica que a imagem NÃO contém alimentos.",
-                parameters: {
-                  type: "object",
-                  properties: {
-                    is_food: { type: "boolean", enum: [false], description: "Sempre false" },
-                    message: { type: "string", description: "Mensagem explicando que não há comida na imagem" },
-                  },
-                  required: ["is_food", "message"],
-                },
-              },
-            },
-            {
-              type: "function",
-              function: {
                 name: "return_meal_analysis",
-                description: "Retorna a análise nutricional estruturada dos alimentos identificados na foto.",
+                description: "Retorna a análise da imagem. Se não houver comida, retorne is_food=false com message. Se houver comida, retorne is_food=true com a análise nutricional.",
                 parameters: {
                   type: "object",
                   properties: {
-                    is_food: { type: "boolean", enum: [true], description: "Sempre true" },
-                    total_calories: { type: "number", description: "Soma total de calorias (kcal)" },
-                    total_protein: { type: "number", description: "Soma total de proteínas (g)" },
-                    total_carbs: { type: "number", description: "Soma total de carboidratos (g)" },
-                    total_fat: { type: "number", description: "Soma total de gorduras (g)" },
+                    is_food: { type: "boolean", description: "true se há comida na imagem, false se não há" },
+                    message: { type: "string", description: "Mensagem quando não há comida (ex: 'Nenhum alimento detectado na imagem.')" },
+                    total_calories: { type: "number", description: "Soma total de calorias (kcal). 0 se is_food=false" },
+                    total_protein: { type: "number", description: "Soma total de proteínas (g). 0 se is_food=false" },
+                    total_carbs: { type: "number", description: "Soma total de carboidratos (g). 0 se is_food=false" },
+                    total_fat: { type: "number", description: "Soma total de gorduras (g). 0 se is_food=false" },
                     items: {
                       type: "array",
-                      description: "Lista dos alimentos REALMENTE visíveis na foto",
+                      description: "Lista dos alimentos visíveis na foto. Array vazio se is_food=false",
                       items: {
                         type: "object",
                         properties: {
@@ -123,7 +109,10 @@ IMPORTANTE: Seja rigoroso. Se a imagem não contém comida, NÃO tente analisar 
               },
             },
           ],
-          tool_choice: "auto",
+          tool_choice: {
+            type: "function",
+            function: { name: "return_meal_analysis" },
+          },
         }),
       }
     );
