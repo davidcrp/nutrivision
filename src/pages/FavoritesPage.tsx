@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Heart, HeartCrack, Plus, MoreVertical, Trash2 } from "lucide-react";
+import { Heart, HeartCrack, Plus, MoreVertical, Trash2, Loader2 } from "lucide-react";
 import BottomNav from "@/components/BottomNav";
 import { useMeals } from "@/contexts/MealContext";
 import { useToast } from "@/hooks/use-toast";
@@ -40,6 +40,7 @@ const categoryToMealType: Record<string, "breakfast" | "lunch" | "snack" | "dinn
 const FavoritesPage = () => {
   const [favorites, setFavorites] = useState(initialFavorites);
   const [filter, setFilter] = useState("Todos");
+  const [addingId, setAddingId] = useState<number | null>(null);
   const { addMeal } = useMeals();
   const { toast } = useToast();
   const filters = ["Todos", "Café da Manhã", "Almoço", "Lanche", "Jantar"];
@@ -48,26 +49,34 @@ const FavoritesPage = () => {
 
   const removeFav = (id: number) => setFavorites((prev) => prev.filter((f) => f.id !== id));
 
-  const quickLog = (item: FavoriteItem) => {
-    const mealType = categoryToMealType[item.category] || "snack";
-    addMeal({
-      mealType,
-      items: [
-        {
-          id: crypto.randomUUID(),
-          food_name: item.name,
-          weight_grams: 100,
-          calories: item.cal,
-          protein: item.protein,
-          carbs: item.carbs,
-          fat: item.fat,
-        },
-      ],
-    });
-    toast({
-      title: "✅ Adicionado!",
-      description: `${item.name} adicionado ao diário de hoje.`,
-    });
+  const quickLog = async (item: FavoriteItem) => {
+    if (addingId) return;
+    setAddingId(item.id);
+    try {
+      const mealType = categoryToMealType[item.category] || "snack";
+      await addMeal({
+        mealType,
+        items: [
+          {
+            id: crypto.randomUUID(),
+            food_name: item.name,
+            weight_grams: 100,
+            calories: item.cal,
+            protein: item.protein,
+            carbs: item.carbs,
+            fat: item.fat,
+          },
+        ],
+      });
+      toast({
+        title: "✅ Adicionado!",
+        description: `${item.name} adicionado ao diário de hoje.`,
+      });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message || "Não foi possível adicionar.", variant: "destructive" });
+    } finally {
+      setAddingId(null);
+    }
   };
 
   return (
@@ -119,9 +128,10 @@ const FavoritesPage = () => {
               {/* Quick-log button */}
               <button
                 onClick={() => quickLog(item)}
-                className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center shrink-0 hover:bg-primary/25 transition-colors"
+                disabled={addingId === item.id}
+                className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center shrink-0 hover:bg-primary/25 transition-colors disabled:opacity-50"
               >
-                <Plus size={20} className="text-primary" />
+                {addingId === item.id ? <Loader2 size={18} className="text-primary animate-spin" /> : <Plus size={20} className="text-primary" />}
               </button>
 
               {/* More menu (delete) */}

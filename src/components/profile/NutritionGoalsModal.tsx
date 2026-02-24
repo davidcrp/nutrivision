@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useMeals } from "@/contexts/MealContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Flame, Beef, Wheat, Droplets } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Flame, Beef, Wheat, Droplets, Loader2 } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -18,7 +20,9 @@ const fields = [
 
 const NutritionGoalsModal = ({ open, onOpenChange }: Props) => {
   const { dailyGoal, macroTargets, setDailyGoal, setMacroTargets } = useMeals();
+  const { user } = useAuth();
   const { toast } = useToast();
+  const [saving, setSaving] = useState(false);
 
   const [values, setValues] = useState({
     calories: dailyGoal,
@@ -39,11 +43,34 @@ const NutritionGoalsModal = ({ open, onOpenChange }: Props) => {
     onOpenChange(o);
   };
 
-  const handleSave = () => {
-    setDailyGoal(values.calories);
-    setMacroTargets({ protein: values.protein, carbs: values.carbs, fat: values.fat });
-    toast({ title: "✅ Metas atualizadas!", description: "Suas metas nutricionais foram salvas." });
-    onOpenChange(false);
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      // Update local state
+      setDailyGoal(values.calories);
+      setMacroTargets({ protein: values.protein, carbs: values.carbs, fat: values.fat });
+
+      // Persist to DB if logged in
+      if (user) {
+        const { error } = await supabase
+          .from("profiles")
+          .update({
+            daily_calorie_target: values.calories,
+            daily_protein_target: values.protein,
+            daily_carbs_target: values.carbs,
+            daily_fat_target: values.fat,
+          })
+          .eq("user_id", user.id);
+        if (error) throw error;
+      }
+
+      toast({ title: "✅ Metas atualizadas!", description: "Suas metas nutricionais foram salvas." });
+      onOpenChange(false);
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message || "Não foi possível salvar.", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -69,8 +96,10 @@ const NutritionGoalsModal = ({ open, onOpenChange }: Props) => {
         </div>
         <button
           onClick={handleSave}
-          className="w-full mt-4 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
+          disabled={saving}
+          className="w-full mt-4 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
         >
+          {saving && <Loader2 size={16} className="animate-spin" />}
           Salvar Alterações
         </button>
       </DialogContent>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { User, Mail, Lock, Eye, EyeOff, Check, Crown, Palette, ChevronRight, LogOut, Camera, Loader2, Star, Shield, CreditCard, Moon, Sun, RotateCcw, Target, Bell, ShieldCheck, HelpCircle } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import AvatarSelector, { AVATAR_MAP } from "@/components/AvatarSelector";
@@ -23,6 +24,7 @@ const themes: Record<ThemeKey, { name: string; primary: string; accent: string; 
 };
 
 const ProfilePage = () => {
+  const navigate = useNavigate();
   const { user, profile, isLoggedIn, loading, signUp, signIn, signOut } = useAuth();
   const { resetOnboarding } = useMeals();
   const { subscriptionTier, openPaywall } = useSubscription();
@@ -181,6 +183,7 @@ const ProfilePage = () => {
     await signOut();
     applyTheme("default");
     toast({ title: "Até logo!", description: "Você saiu da sua conta." });
+    navigate("/profile");
   };
 
   const applyTheme = (key: ThemeKey) => {

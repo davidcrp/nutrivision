@@ -12,7 +12,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Shield, Download, Trash2, ExternalLink } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { FileText, Shield, Download, Trash2, ExternalLink, Loader2 } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -21,16 +23,28 @@ interface Props {
 
 const PrivacyModal = ({ open, onOpenChange }: Props) => {
   const { toast } = useToast();
+  const { signOut } = useAuth();
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const handleExport = () => {
     toast({ title: "📦 Exportação iniciada", description: "Seus dados serão enviados para o seu email em breve." });
   };
 
-  const handleDelete = () => {
-    toast({ title: "Conta excluída", description: "Sua conta foi marcada para exclusão.", variant: "destructive" });
-    setShowDeleteAlert(false);
-    onOpenChange(false);
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      const { error } = await supabase.rpc("delete_own_account");
+      if (error) throw error;
+      await signOut();
+      toast({ title: "Conta excluída", description: "Sua conta foi removida com sucesso." });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message || "Não foi possível excluir a conta.", variant: "destructive" });
+    } finally {
+      setDeleting(false);
+      setShowDeleteAlert(false);
+      onOpenChange(false);
+    }
   };
 
   return (
@@ -92,8 +106,13 @@ const PrivacyModal = ({ open, onOpenChange }: Props) => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? <Loader2 size={16} className="animate-spin mr-2" /> : null}
               Sim, excluir
             </AlertDialogAction>
           </AlertDialogFooter>

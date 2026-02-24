@@ -1,4 +1,6 @@
-import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useMemo, useEffect, type ReactNode } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface MealItem {
   id: string;
@@ -80,15 +82,25 @@ interface MealState {
   loggedMeals: LoggedMeal[];
   filteredRecipes: MockRecipe[];
   remainingCalories: number;
-  addMeal: (meal: Omit<LoggedMeal, "id" | "loggedAt">) => void;
-  removeItemFromMeal: (mealId: string, itemId: string) => void;
+  addMeal: (meal: Omit<LoggedMeal, "id" | "loggedAt">) => Promise<void>;
+  removeItemFromMeal: (mealId: string, itemId: string) => Promise<void>;
   resetOnboarding: () => void;
+  loadingMeals: boolean;
+  refreshMeals: () => Promise<void>;
 }
 
 const MealContext = createContext<MealState | null>(null);
 
+function startOfToday(): string {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString();
+}
+
 export const MealProvider = ({ children }: { children: ReactNode }) => {
-  const [dailyGoal, setDailyGoal] = useState(() => {
+  const { user, isLoggedIn } = useAuth();
+
+  const [dailyGoal, setDailyGoalState] = useState(() => {
     const saved = localStorage.getItem("daily_goal");
     return saved ? Number(saved) : 2000;
   });
@@ -100,16 +112,188 @@ export const MealProvider = ({ children }: { children: ReactNode }) => {
     return localStorage.getItem("onboarding_complete") === "true";
   });
   const [loggedMeals, setLoggedMeals] = useState<LoggedMeal[]>([]);
+  const [loadingMeals, setLoadingMeals] = useState(false);
+
+  const setDailyGoal = useCallback((goal: number) => {
+    setDailyGoalState(goal);
+    localStorage.setItem("daily_goal", String(goal));
+  }, []);
 
   const setMacroTargets = useCallback((targets: MacroTargets) => {
     setMacroTargetsState(targets);
     localStorage.setItem("macro_targets", JSON.stringify(targets));
   }, []);
 
-  // STRICT MATH: all totals derived from loggedMeals items
+  // Load profile targets from DB when user logs in
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("profiles")
+      .select("daily_calorie_target, daily_protein_target, daily_carbs_target, daily_fat_target")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          if (data.daily_calorie_target) {
+            setDailyGoalState(data.daily_calorie_target);
+            localStorage.setItem("daily_goal", String(data.daily_calorie_target));
+          }
+          const targets: MacroTargets = {
+            protein: data.daily_protein_target ?? 150,
+            carbs: data.daily_carbs_target ?? 250,
+            fat: data.daily_fat_target ?? 80,
+          };
+          setMacroTargetsState(targets);
+          localStorage.setItem("macro_targets", JSON.stringify(targets));
+        }
+      });
+  }, [user]);
+
+  // Fetch today's meals from DB
+  const fetchTodayMeals = useCallback(async () => {
+    if (!user) {
+      setLoggedMeals([]);
+      return;
+    }
+    setLoadingMeals(true);
+    try {
+      const todayStart = startOfToday();
+      const { data: meals, error } = await supabase
+        .from("meals")
+        .select("id, meal_type, logged_at, image_url, total_calories, total_protein, total_carbs, total_fat")
+        .eq("user_id", user.id)
+        .gte("logged_at", todayStart)
+        .order("logged_at", { ascending: true });
+
+      if (error) throw error;
+
+      if (!meals || meals.length === 0) {
+        setLoggedMeals([]);
+        setLoadingMeals(false);
+        return;
+      }
+
+      // Fetch items for all meals
+      const mealIds = meals.map((m) => m.id);
+      const { data: items, error: itemsError } = await supabase
+        .from("meal_items")
+        .select("id, meal_id, food_name, weight_grams, calories, protein, carbs, fat")
+        .in("meal_id", mealIds);
+
+      if (itemsError) throw itemsError;
+
+      const itemsByMeal = new Map<string, MealItem[]>();
+      for (const item of items ?? []) {
+        const list = itemsByMeal.get(item.meal_id) ?? [];
+        list.push({
+          id: item.id,
+          food_name: item.food_name,
+          weight_grams: item.weight_grams,
+          calories: item.calories,
+          protein: Number(item.protein),
+          carbs: Number(item.carbs),
+          fat: Number(item.fat),
+        });
+        itemsByMeal.set(item.meal_id, list);
+      }
+
+      const mapped: LoggedMeal[] = meals.map((m) => ({
+        id: m.id,
+        mealType: m.meal_type as LoggedMeal["mealType"],
+        items: itemsByMeal.get(m.id) ?? [],
+        imageUrl: m.image_url ?? undefined,
+        loggedAt: new Date(m.logged_at),
+      }));
+
+      setLoggedMeals(mapped);
+    } catch (err) {
+      console.error("Error fetching meals:", err);
+    } finally {
+      setLoadingMeals(false);
+    }
+  }, [user]);
+
+  // Also fetch last 7 days for analysis (store all, filter in components)
+  const fetchWeekMeals = useCallback(async () => {
+    if (!user) {
+      setLoggedMeals([]);
+      return;
+    }
+    setLoadingMeals(true);
+    try {
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      weekAgo.setHours(0, 0, 0, 0);
+
+      const { data: meals, error } = await supabase
+        .from("meals")
+        .select("id, meal_type, logged_at, image_url")
+        .eq("user_id", user.id)
+        .gte("logged_at", weekAgo.toISOString())
+        .order("logged_at", { ascending: true });
+
+      if (error) throw error;
+      if (!meals || meals.length === 0) {
+        setLoggedMeals([]);
+        setLoadingMeals(false);
+        return;
+      }
+
+      const mealIds = meals.map((m) => m.id);
+      const { data: items, error: itemsError } = await supabase
+        .from("meal_items")
+        .select("id, meal_id, food_name, weight_grams, calories, protein, carbs, fat")
+        .in("meal_id", mealIds);
+
+      if (itemsError) throw itemsError;
+
+      const itemsByMeal = new Map<string, MealItem[]>();
+      for (const item of items ?? []) {
+        const list = itemsByMeal.get(item.meal_id) ?? [];
+        list.push({
+          id: item.id,
+          food_name: item.food_name,
+          weight_grams: item.weight_grams,
+          calories: item.calories,
+          protein: Number(item.protein),
+          carbs: Number(item.carbs),
+          fat: Number(item.fat),
+        });
+        itemsByMeal.set(item.meal_id, list);
+      }
+
+      const mapped: LoggedMeal[] = meals.map((m) => ({
+        id: m.id,
+        mealType: m.meal_type as LoggedMeal["mealType"],
+        items: itemsByMeal.get(m.id) ?? [],
+        imageUrl: m.image_url ?? undefined,
+        loggedAt: new Date(m.logged_at),
+      }));
+
+      setLoggedMeals(mapped);
+    } catch (err) {
+      console.error("Error fetching week meals:", err);
+    } finally {
+      setLoadingMeals(false);
+    }
+  }, [user]);
+
+  // Load meals when user changes
+  useEffect(() => {
+    if (isLoggedIn) {
+      fetchWeekMeals();
+    } else {
+      setLoggedMeals([]);
+    }
+  }, [isLoggedIn, fetchWeekMeals]);
+
+  // STRICT MATH: all totals derived from loggedMeals items (today only)
   const { consumedCalories, consumedMacros } = useMemo(() => {
+    const todayStr = new Date().toISOString().slice(0, 10);
     let cal = 0, protein = 0, carbs = 0, fat = 0;
     for (const meal of loggedMeals) {
+      const mealDate = new Date(meal.loggedAt).toISOString().slice(0, 10);
+      if (mealDate !== todayStr) continue;
       for (const item of meal.items) {
         cal += item.calories;
         protein += item.protein;
@@ -129,29 +313,94 @@ export const MealProvider = ({ children }: { children: ReactNode }) => {
 
   const remainingCalories = dailyGoal - consumedCalories;
 
-  // Filtered & randomized recipes
   const filteredRecipes = useMemo(() => {
     const eligible = recipeDatabase.filter((r) => r.calories <= remainingCalories);
     return shuffleAndPick(eligible, 10);
   }, [remainingCalories]);
 
   const completeOnboarding = useCallback((goal: number) => {
-    setDailyGoal(goal);
+    setDailyGoalState(goal);
     setOnboardingComplete(true);
     localStorage.setItem("onboarding_complete", "true");
     localStorage.setItem("daily_goal", String(goal));
   }, []);
 
-  const addMeal = useCallback((meal: Omit<LoggedMeal, "id" | "loggedAt">) => {
+  // Real DB insert
+  const addMeal = useCallback(async (meal: Omit<LoggedMeal, "id" | "loggedAt">) => {
+    if (!user) {
+      // Fallback for non-logged-in (shouldn't happen but safe)
+      const newMeal: LoggedMeal = { ...meal, id: crypto.randomUUID(), loggedAt: new Date() };
+      setLoggedMeals((prev) => [...prev, newMeal]);
+      return;
+    }
+
+    const totalCal = meal.items.reduce((s, i) => s + i.calories, 0);
+    const totalProtein = meal.items.reduce((s, i) => s + i.protein, 0);
+    const totalCarbs = meal.items.reduce((s, i) => s + i.carbs, 0);
+    const totalFat = meal.items.reduce((s, i) => s + i.fat, 0);
+
+    const { data: mealRow, error: mealErr } = await supabase
+      .from("meals")
+      .insert({
+        user_id: user.id,
+        meal_type: meal.mealType,
+        total_calories: Math.round(totalCal),
+        total_protein: Math.round(totalProtein * 10) / 10,
+        total_carbs: Math.round(totalCarbs * 10) / 10,
+        total_fat: Math.round(totalFat * 10) / 10,
+        image_url: meal.imageUrl ?? null,
+      })
+      .select("id")
+      .single();
+
+    if (mealErr || !mealRow) {
+      console.error("Error inserting meal:", mealErr);
+      throw new Error("Falha ao salvar refeição");
+    }
+
+    const itemsToInsert = meal.items.map((item) => ({
+      meal_id: mealRow.id,
+      food_name: item.food_name,
+      weight_grams: item.weight_grams,
+      calories: item.calories,
+      protein: item.protein,
+      carbs: item.carbs,
+      fat: item.fat,
+    }));
+
+    const { error: itemsErr } = await supabase.from("meal_items").insert(itemsToInsert);
+    if (itemsErr) {
+      console.error("Error inserting meal items:", itemsErr);
+      throw new Error("Falha ao salvar itens da refeição");
+    }
+
+    // Optimistic local update
     const newMeal: LoggedMeal = {
       ...meal,
-      id: crypto.randomUUID(),
+      id: mealRow.id,
       loggedAt: new Date(),
+      items: meal.items.map((item, i) => ({
+        ...item,
+        id: item.id || crypto.randomUUID(),
+      })),
     };
     setLoggedMeals((prev) => [...prev, newMeal]);
-  }, []);
+  }, [user]);
 
-  const removeItemFromMeal = useCallback((mealId: string, itemId: string) => {
+  // Real DB delete
+  const removeItemFromMeal = useCallback(async (mealId: string, itemId: string) => {
+    if (user) {
+      await supabase.from("meal_items").delete().eq("id", itemId);
+      // Check if meal has remaining items
+      const { data: remaining } = await supabase
+        .from("meal_items")
+        .select("id")
+        .eq("meal_id", mealId);
+      if (!remaining || remaining.length === 0) {
+        await supabase.from("meals").delete().eq("id", mealId);
+      }
+    }
+
     setLoggedMeals((prev) =>
       prev
         .map((meal) => {
@@ -160,13 +409,15 @@ export const MealProvider = ({ children }: { children: ReactNode }) => {
         })
         .filter((meal) => meal.items.length > 0)
     );
-  }, []);
+  }, [user]);
 
   const resetOnboarding = useCallback(() => {
     setOnboardingComplete(false);
     localStorage.removeItem("onboarding_complete");
     localStorage.removeItem("daily_goal");
   }, []);
+
+  const refreshMeals = fetchWeekMeals;
 
   return (
     <MealContext.Provider
@@ -185,6 +436,8 @@ export const MealProvider = ({ children }: { children: ReactNode }) => {
         addMeal,
         removeItemFromMeal,
         resetOnboarding,
+        loadingMeals,
+        refreshMeals,
       }}
     >
       {children}

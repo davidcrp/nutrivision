@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Search, X } from "lucide-react";
+import { Search, X, Loader2 } from "lucide-react";
 import { useMeals } from "@/contexts/MealContext";
 import { useToast } from "@/hooks/use-toast";
 
@@ -56,6 +56,7 @@ const mealOptions: { value: MealType; label: string; emoji: string }[] = [
 ];
 
 const SearchBar = () => {
+  const [adding, setAdding] = useState(false);
   const [query, setQuery] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
@@ -87,30 +88,37 @@ const SearchBar = () => {
     setIsDropdownOpen(false);
   };
 
-  const handleAdd = () => {
-    if (!selectedFood) return;
-    addMeal({
-      mealType: selectedMealType,
-      items: [
-        {
-          id: crypto.randomUUID(),
-          food_name: selectedFood.name,
-          calories: Math.round(selectedFood.calories * quantity),
-          protein: Math.round(selectedFood.protein * quantity * 10) / 10,
-          carbs: Math.round(selectedFood.carbs * quantity * 10) / 10,
-          fat: Math.round(selectedFood.fat * quantity * 10) / 10,
-          weight_grams: Math.round(100 * quantity),
-        },
-      ],
-    });
-    const mealLabel = mealOptions.find((m) => m.value === selectedMealType)?.label ?? "";
-    toast({
-      title: "✅ Adicionado!",
-      description: `${quantity > 1 ? quantity + "x " : ""}${selectedFood.name} adicionado ao ${mealLabel} de hoje.`,
-    });
-    setSelectedFood(null);
-    setQuery("");
-    setQuantity(1);
+  const handleAdd = async () => {
+    if (!selectedFood || adding) return;
+    setAdding(true);
+    try {
+      await addMeal({
+        mealType: selectedMealType,
+        items: [
+          {
+            id: crypto.randomUUID(),
+            food_name: selectedFood.name,
+            calories: Math.round(selectedFood.calories * quantity),
+            protein: Math.round(selectedFood.protein * quantity * 10) / 10,
+            carbs: Math.round(selectedFood.carbs * quantity * 10) / 10,
+            fat: Math.round(selectedFood.fat * quantity * 10) / 10,
+            weight_grams: Math.round(100 * quantity),
+          },
+        ],
+      });
+      const mealLabel = mealOptions.find((m) => m.value === selectedMealType)?.label ?? "";
+      toast({
+        title: "✅ Adicionado!",
+        description: `${quantity > 1 ? quantity + "x " : ""}${selectedFood.name} adicionado ao ${mealLabel} de hoje.`,
+      });
+      setSelectedFood(null);
+      setQuery("");
+      setQuantity(1);
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message || "Não foi possível adicionar.", variant: "destructive" });
+    } finally {
+      setAdding(false);
+    }
   };
 
   const adjustedCalories = selectedFood ? Math.round(selectedFood.calories * quantity) : 0;
@@ -240,9 +248,11 @@ const SearchBar = () => {
 
             <button
               onClick={handleAdd}
-              className="w-full rounded-xl bg-primary py-3 text-primary-foreground font-semibold text-sm hover:opacity-90 transition-opacity"
+              disabled={adding}
+              className="w-full rounded-xl bg-primary py-3 text-primary-foreground font-semibold text-sm hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              Adicionar ao Diário
+              {adding && <Loader2 size={16} className="animate-spin" />}
+              {adding ? "Salvando..." : "Adicionar ao Diário"}
             </button>
             <button
               onClick={() => setSelectedFood(null)}
