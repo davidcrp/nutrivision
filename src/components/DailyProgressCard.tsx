@@ -46,7 +46,7 @@ const MacroBar = ({ label, value, max, color }: { label: string; value: number; 
 );
 
 const DailyProgressCard = () => {
-  const { dailyGoal, consumedCalories, consumedMacros } = useMeals();
+  const { dailyGoal, consumedCalories, consumedMacros, macroTargets } = useMeals();
   const progress = (consumedCalories / dailyGoal) * 100;
 
   return (
@@ -58,9 +58,9 @@ const DailyProgressCard = () => {
           <span className="text-sm font-normal text-muted-foreground">/ {dailyGoal.toLocaleString("pt-BR")} kcal</span>
         </p>
         <div className="mt-3 space-y-1.5">
-          <MacroBar label="P" value={consumedMacros.protein} max={150} color="bg-primary" />
-          <MacroBar label="C" value={consumedMacros.carbs} max={250} color="bg-accent" />
-          <MacroBar label="G" value={consumedMacros.fat} max={80} color="bg-[hsl(var(--lilac))]" />
+          <MacroBar label="P" value={consumedMacros.protein} max={macroTargets.protein} color="bg-primary" />
+          <MacroBar label="C" value={consumedMacros.carbs} max={macroTargets.carbs} color="bg-accent" />
+          <MacroBar label="G" value={consumedMacros.fat} max={macroTargets.fat} color="bg-[hsl(var(--lilac))]" />
         </div>
       </div>
       <div className="flex-shrink-0 ml-3">
