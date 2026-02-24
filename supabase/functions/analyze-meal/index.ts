@@ -39,25 +39,31 @@ serve(async (req) => {
           messages: [
             {
               role: "system",
-              content: `Você é um nutricionista especialista em análise visual de alimentos. Sua tarefa é analisar CUIDADOSAMENTE a foto enviada e identificar EXATAMENTE os alimentos visíveis.
+              content: `Você é um nutricionista especialista em visão computacional.
 
-INSTRUÇÕES CRÍTICAS:
-1. OLHE com atenção para a foto. Identifique APENAS os alimentos que você REALMENTE consegue ver na imagem.
-2. NÃO invente alimentos que não estão na foto. Se você vê arroz, diga arroz. Se vê feijão, diga feijão. Se vê frango, diga frango.
+PRIMEIRO PASSO OBRIGATÓRIO: Verifique se a imagem contém comida, bebida ou ingredientes alimentícios reais.
+
+Se NÃO houver comida na imagem (ex: é uma foto de um notebook, um carro, uma pessoa sem comida, um objeto qualquer), você DEVE usar a função "return_no_food" para indicar que não há alimento.
+
+Se HOUVER comida real na imagem, use a função "return_meal_analysis" com a análise nutricional completa.
+
+INSTRUÇÕES PARA ANÁLISE (somente se houver comida):
+1. OLHE com atenção para a foto. Identifique APENAS os alimentos que você REALMENTE consegue ver.
+2. NÃO invente alimentos que não estão na foto.
 3. Estime porções REALISTAS baseadas no tamanho visual do prato. Um prato comum tem ~22cm de diâmetro.
 4. Use a Tabela TACO (Tabela Brasileira de Composição de Alimentos) como referência nutricional.
 5. Nomes dos alimentos DEVEM ser em português brasileiro (pt-BR).
 6. Valores de macronutrientes em gramas, calorias em kcal.
 7. Os totais DEVEM ser a soma exata dos itens individuais.
 
-IMPORTANTE: Seja preciso. É melhor identificar poucos alimentos corretamente do que muitos incorretamente.`,
+IMPORTANTE: Seja rigoroso. Se a imagem não contém comida, NÃO tente analisar nutricionalmente.`,
             },
             {
               role: "user",
               content: [
                 {
                   type: "text",
-                  text: "Analise esta foto de refeição. Identifique CADA alimento visível na imagem, estime o peso em gramas e calcule os valores nutricionais. Retorne os dados estruturados.",
+                  text: "Primeiro, verifique se esta imagem contém comida real. Se não contiver, informe que não há alimento. Se contiver, analise cada alimento visível, estime o peso e calcule os valores nutricionais.",
                 },
                 {
                   type: "image_url",
@@ -70,13 +76,28 @@ IMPORTANTE: Seja preciso. É melhor identificar poucos alimentos corretamente do
             {
               type: "function",
               function: {
-                name: "return_meal_analysis",
-                description:
-                  "Retorna a análise nutricional estruturada dos alimentos identificados na foto.",
+                name: "return_no_food",
+                description: "Indica que a imagem NÃO contém alimentos.",
                 parameters: {
                   type: "object",
                   properties: {
-                    total_calories: { type: "number", description: "Soma total de calorias (kcal) de todos os itens" },
+                    is_food: { type: "boolean", enum: [false], description: "Sempre false" },
+                    message: { type: "string", description: "Mensagem explicando que não há comida na imagem" },
+                  },
+                  required: ["is_food", "message"],
+                },
+              },
+            },
+            {
+              type: "function",
+              function: {
+                name: "return_meal_analysis",
+                description: "Retorna a análise nutricional estruturada dos alimentos identificados na foto.",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    is_food: { type: "boolean", enum: [true], description: "Sempre true" },
+                    total_calories: { type: "number", description: "Soma total de calorias (kcal)" },
                     total_protein: { type: "number", description: "Soma total de proteínas (g)" },
                     total_carbs: { type: "number", description: "Soma total de carboidratos (g)" },
                     total_fat: { type: "number", description: "Soma total de gorduras (g)" },
@@ -86,8 +107,8 @@ IMPORTANTE: Seja preciso. É melhor identificar poucos alimentos corretamente do
                       items: {
                         type: "object",
                         properties: {
-                          food_name: { type: "string", description: "Nome do alimento em pt-BR (ex: Arroz branco, Feijão carioca, Peito de frango grelhado)" },
-                          weight_grams: { type: "number", description: "Peso estimado em gramas baseado no tamanho visual" },
+                          food_name: { type: "string", description: "Nome do alimento em pt-BR" },
+                          weight_grams: { type: "number", description: "Peso estimado em gramas" },
                           calories: { type: "number", description: "Calorias em kcal" },
                           protein: { type: "number", description: "Proteínas em gramas" },
                           carbs: { type: "number", description: "Carboidratos em gramas" },
@@ -97,15 +118,12 @@ IMPORTANTE: Seja preciso. É melhor identificar poucos alimentos corretamente do
                       },
                     },
                   },
-                  required: ["total_calories", "total_protein", "total_carbs", "total_fat", "items"],
+                  required: ["is_food", "total_calories", "total_protein", "total_carbs", "total_fat", "items"],
                 },
               },
             },
           ],
-          tool_choice: {
-            type: "function",
-            function: { name: "return_meal_analysis" },
-          },
+          tool_choice: "auto",
         }),
       }
     );

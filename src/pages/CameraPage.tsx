@@ -72,7 +72,7 @@ const CameraPage = () => {
     inputRef.current?.click();
   };
 
-  const analyzeFoodImage = async (file: File): Promise<AnalysisResult> => {
+  const analyzeFoodImage = async (file: File): Promise<AnalysisResult | null> => {
     try {
       let imageUrl: string | null = null;
       if (user) {
@@ -97,6 +97,9 @@ const CameraPage = () => {
           console.error("AI analysis error:", error);
           toast({ title: "Erro na análise, usando estimativa", variant: "destructive" });
         } else if (data && !data.error) {
+          if (data.is_food === false) {
+            return null; // Signal: no food detected
+          }
           return data as AnalysisResult;
         }
       }
@@ -121,8 +124,19 @@ const CameraPage = () => {
     setScanning(true);
 
     const result = await analyzeFoodImage(file);
-    setAnalysisResult(result);
     setScanning(false);
+
+    if (result === null) {
+      toast({
+        title: "🍽️ Nenhum alimento detectado",
+        description: "A foto não parece conter comida. Tire uma foto clara de uma refeição.",
+        variant: "destructive",
+      });
+      resetState();
+      return;
+    }
+
+    setAnalysisResult(result);
     setShowResults(true);
   };
 
