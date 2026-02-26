@@ -16,6 +16,7 @@ import AnalysisPage from "./pages/AnalysisPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import NotFound from "./pages/NotFound";
 import SuccessPage from "./pages/SuccessPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +33,7 @@ const AppRoutes = () => {
       <Route path="/favorites" element={onboardingComplete ? <FavoritesPage /> : <Navigate to="/onboarding" replace />} />
       <Route path="/profile" element={onboardingComplete ? <ProfilePage /> : <Navigate to="/onboarding" replace />} />
       <Route path="/success" element={<SuccessPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
