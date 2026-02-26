@@ -65,7 +65,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       password,
       options: {
         data: { name },
-        emailRedirectTo: window.location.origin,
+        emailRedirectTo: "https://nutri-vision-seven.vercel.app/",
       },
     });
     return { error: error?.message ?? null };
