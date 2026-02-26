@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Camera, Image, Zap } from "lucide-react";
+import { Camera, Image, Zap, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMeals } from "@/contexts/MealContext";
@@ -12,8 +12,15 @@ import ResultsBottomSheet, {
   type AnalysisResult,
   type MealType,
 } from "@/components/ResultsBottomSheet";
-
-// No more mock data - all plans use real AI analysis
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 
 const CameraPage = () => {
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -24,6 +31,9 @@ const CameraPage = () => {
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
   const [showResults, setShowResults] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // No-food alert state
+  const [noFoodAlert, setNoFoodAlert] = useState<{ open: boolean; message: string }>({ open: false, message: "" });
 
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -65,45 +75,76 @@ const CameraPage = () => {
   };
 
   const analyzeFoodImage = async (file: File): Promise<{ result: AnalysisResult; rawResponse: any; imageUrl: string } | null> => {
-    // Always upload to meal-photos bucket for dataset building
+    // 1. Upload to meal-photos bucket
     const ext = file.name.split(".").pop();
     const userId = user?.id || "anonymous";
     const path = `${userId}/${Date.now()}.${ext}`;
-    const { error: uploadError } = await supabase.storage
-      .from("meal-photos")
-      .upload(path, file);
 
-    let imageUrl: string = "";
-    if (!uploadError) {
-      const { data: urlData } = supabase.storage
+    console.log("[Upload] Starting upload to meal-photos bucket:", path);
+
+    try {
+      const { error: uploadError } = await supabase.storage
         .from("meal-photos")
-        .getPublicUrl(path);
-      imageUrl = urlData.publicUrl;
-    }
+        .upload(path, file);
 
-    if (!imageUrl) {
-      toast({ title: "Erro ao enviar imagem", description: "Não foi possível fazer upload da foto.", variant: "destructive" });
+      if (uploadError) {
+        console.error("[Upload] Failed to upload image:", uploadError);
+        toast({
+          title: "Falha ao enviar a imagem",
+          description: "Verifique sua conexão e tente novamente.",
+          variant: "destructive",
+        });
+        return null;
+      }
+
+      console.log("[Upload] Image uploaded successfully");
+    } catch (uploadErr) {
+      console.error("[Upload] Upload threw an exception:", uploadErr);
+      toast({
+        title: "Falha ao enviar a imagem",
+        description: "Verifique sua conexão e tente novamente.",
+        variant: "destructive",
+      });
       return null;
     }
 
+    // 2. Get public URL
+    const { data: urlData } = supabase.storage.from("meal-photos").getPublicUrl(path);
+    const imageUrl = urlData?.publicUrl;
+
+    if (!imageUrl) {
+      console.error("[Upload] Failed to generate public URL");
+      toast({ title: "Erro ao gerar URL da imagem", variant: "destructive" });
+      return null;
+    }
+
+    console.log("[Upload] Public URL generated:", imageUrl);
+
+    // 3. Call AI analysis — always real, no mocks
+    console.log("[AI] Calling analyze-meal Edge Function...");
     const { data, error } = await supabase.functions.invoke("analyze-meal", {
       body: { imageUrl },
     });
 
     if (error) {
-      console.error("AI analysis error:", error);
+      console.error("[AI] Edge Function invocation error:", error);
       toast({ title: "Erro na análise da IA", description: "Tente novamente.", variant: "destructive" });
       return null;
     }
 
     if (data?.error) {
+      console.error("[AI] Edge Function returned error:", data.error);
       toast({ title: "Erro na análise", description: data.error, variant: "destructive" });
       return null;
     }
 
+    // 4. Handle is_food: false — no crash, show friendly alert
     if (data?.is_food === false) {
-      return null; // No food detected - handled by caller
+      console.log("[AI] No food detected:", data.message);
+      return { result: null as any, rawResponse: data, imageUrl: "__no_food__" };
     }
+
+    console.log("[AI] Analysis complete:", { items: data?.items?.length, calories: data?.total_calories });
 
     return {
       result: data as AnalysisResult,
@@ -126,11 +167,15 @@ const CameraPage = () => {
     setScanning(false);
 
     if (analysisData === null) {
-      toast({
-        title: "🍽️ Nenhum alimento detectado",
-        description: "A foto não parece conter comida. Tire uma foto clara de uma refeição.",
-        variant: "destructive",
-      });
+      // Upload or AI error — already toasted
+      resetState();
+      return;
+    }
+
+    // Handle is_food: false with elegant alert
+    if (analysisData.imageUrl === "__no_food__") {
+      const msg = analysisData.rawResponse?.message || "Nenhum alimento ou bebida detectado na imagem.";
+      setNoFoodAlert({ open: true, message: msg });
       resetState();
       return;
     }
@@ -154,7 +199,6 @@ const CameraPage = () => {
         { calories: 0, protein: 0, carbs: 0, fat: 0 }
       );
 
-      // Add to local state immediately
       addMeal({
         mealType,
         items: editedItems.map((i) => ({
@@ -169,7 +213,6 @@ const CameraPage = () => {
         imageUrl: imagePreview || undefined,
       });
 
-      // Save to DB if logged in (image already uploaded during analysis)
       if (user) {
         const mealTypeMap: Record<MealType, string> = {
           breakfast: "breakfast",
@@ -197,15 +240,15 @@ const CameraPage = () => {
 
         if (mealError) throw mealError;
 
-      const items = editedItems.map((item) => ({
-        meal_id: meal.id,
-        food_name: item.food_name,
-        weight_grams: Math.round(item.weight_grams),
-        calories: Math.round(item.calories),
-        protein: Math.round(item.protein * 10) / 10,
-        carbs: Math.round(item.carbs * 10) / 10,
-        fat: Math.round(item.fat * 10) / 10,
-      }));
+        const items = editedItems.map((item) => ({
+          meal_id: meal.id,
+          food_name: item.food_name,
+          weight_grams: Math.round(item.weight_grams),
+          calories: Math.round(item.calories),
+          protein: Math.round(item.protein * 10) / 10,
+          carbs: Math.round(item.carbs * 10) / 10,
+          fat: Math.round(item.fat * 10) / 10,
+        }));
         const { error: itemsError } = await supabase.from("meal_items").insert(items);
         if (itemsError) throw itemsError;
       }
@@ -293,6 +336,32 @@ const CameraPage = () => {
           onClose={resetState}
         />
       )}
+
+      {/* Elegant no-food alert */}
+      <AlertDialog open={noFoodAlert.open} onOpenChange={(o) => !o && setNoFoodAlert({ open: false, message: "" })}>
+        <AlertDialogContent className="max-w-sm rounded-2xl">
+          <AlertDialogHeader>
+            <div className="flex justify-center mb-2">
+              <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center">
+                <AlertTriangle size={28} className="text-destructive" />
+              </div>
+            </div>
+            <AlertDialogTitle className="text-center">Nenhum alimento detectado</AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              {noFoodAlert.message}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="sm:justify-center">
+            <AlertDialogAction
+              onClick={() => setNoFoodAlert({ open: false, message: "" })}
+              className="rounded-2xl bg-primary text-primary-foreground px-8"
+            >
+              <Camera size={16} className="mr-2" />
+              Tirar nova foto
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <BottomNav />
     </div>

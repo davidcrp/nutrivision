@@ -25,25 +25,32 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const response = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-pro",
-          max_tokens: 4096,
-          messages: [
-            {
-              role: "system",
-              content: `Você é um nutricionista clínico e especialista em visão computacional hiper-precisa.
+    // Timeout controller — abort after 55 seconds to return a friendly message
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 55000);
+
+    let response: Response;
+    try {
+      response = await fetch(
+        "https://ai.gateway.lovable.dev/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          signal: controller.signal,
+          body: JSON.stringify({
+            model: "google/gemini-2.5-pro",
+            max_tokens: 4096,
+            messages: [
+              {
+                role: "system",
+                content: `Você é um nutricionista clínico e especialista em visão computacional hiper-precisa.
 Sua tarefa é analisar a imagem e retornar os dados nutricionais com máxima precisão.
 
 REGRAS DE VERIFICAÇÃO (CRÍTICO):
-1. Analise se a imagem contém comida real ou bebida real em um recipiente. Se for um objeto vazio (ex: xícara vazia) ou não comestível, use a função "return_no_food" e PARE.
+1. Analise se a imagem contém comida real ou bebida real em um recipiente. Se for um objeto vazio (ex: xícara vazia) ou não comestível, retorne is_food=false com uma mensagem descritiva e PARE.
 2. Diferencie com precisão bebidas de sólidos (ex: não confunda café escuro com sopa).
 3. NÃO invente alimentos que não estão claramente visíveis na foto.
 
@@ -65,65 +72,83 @@ REGRAS DE NOMENCLATURA:
 1. Nomes dos alimentos DEVEM ser em português brasileiro (pt-BR).
 2. Use nomes específicos (ex: "Arroz Branco Cozido", não apenas "Arroz").
 3. Valores de macronutrientes em gramas, calorias em kcal.`,
-            },
-            {
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text: "Primeiro, verifique se esta imagem contém comida ou bebida real. Se não contiver, informe que não há alimento. Se contiver, identifique CADA alimento visível, estime o peso/volume com base nas proporções visuais do recipiente, e calcule os valores nutricionais proporcionalmente usando a Tabela TACO. Confira a soma dos totais.",
-                },
-                {
-                  type: "image_url",
-                  image_url: { url: imageUrl },
-                },
-              ],
-            },
-          ],
-          tools: [
-            {
-              type: "function",
-              function: {
-                name: "return_meal_analysis",
-                description: "Retorna a análise nutricional completa da refeição identificada na imagem.",
-                parameters: {
-                  type: "object",
-                  properties: {
-                    is_food: { type: "boolean", description: "true se há comida/bebida real na imagem, false caso contrário" },
-                    message: { type: "string", description: "Mensagem quando não há comida (ex: 'Nenhum alimento ou bebida detectado.')" },
-                    total_calories: { type: "number", description: "Soma EXATA das calorias de todos os itens (kcal). 0 se is_food=false" },
-                    total_protein: { type: "number", description: "Soma EXATA das proteínas de todos os itens (g). 0 se is_food=false" },
-                    total_carbs: { type: "number", description: "Soma EXATA dos carboidratos de todos os itens (g). 0 se is_food=false" },
-                    total_fat: { type: "number", description: "Soma EXATA das gorduras de todos os itens (g). 0 se is_food=false" },
-                    items: {
-                      type: "array",
-                      description: "Lista dos alimentos/bebidas visíveis na foto com pesos estimados visualmente. Array vazio se is_food=false",
+              },
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "text",
+                    text: "Primeiro, verifique se esta imagem contém comida ou bebida real. Se não contiver, informe que não há alimento. Se contiver, identifique CADA alimento visível, estime o peso/volume com base nas proporções visuais do recipiente, e calcule os valores nutricionais proporcionalmente usando a Tabela TACO. Confira a soma dos totais.",
+                  },
+                  {
+                    type: "image_url",
+                    image_url: { url: imageUrl },
+                  },
+                ],
+              },
+            ],
+            tools: [
+              {
+                type: "function",
+                function: {
+                  name: "return_meal_analysis",
+                  description: "Retorna a análise nutricional completa da refeição identificada na imagem.",
+                  parameters: {
+                    type: "object",
+                    properties: {
+                      is_food: { type: "boolean", description: "true se há comida/bebida real na imagem, false caso contrário" },
+                      message: { type: "string", description: "Mensagem quando não há comida (ex: 'Nenhum alimento ou bebida detectado.')" },
+                      total_calories: { type: "number", description: "Soma EXATA das calorias de todos os itens (kcal). 0 se is_food=false" },
+                      total_protein: { type: "number", description: "Soma EXATA das proteínas de todos os itens (g). 0 se is_food=false" },
+                      total_carbs: { type: "number", description: "Soma EXATA dos carboidratos de todos os itens (g). 0 se is_food=false" },
+                      total_fat: { type: "number", description: "Soma EXATA das gorduras de todos os itens (g). 0 se is_food=false" },
                       items: {
-                        type: "object",
-                        properties: {
-                          food_name: { type: "string", description: "Nome específico do alimento em pt-BR (ex: 'Arroz Branco Cozido')" },
-                          weight_grams: { type: "number", description: "Peso estimado em gramas baseado nas proporções visuais do recipiente" },
-                          calories: { type: "number", description: "Calorias proporcionais ao peso estimado (kcal)" },
-                          protein: { type: "number", description: "Proteínas proporcionais ao peso estimado (g)" },
-                          carbs: { type: "number", description: "Carboidratos proporcionais ao peso estimado (g)" },
-                          fat: { type: "number", description: "Gorduras proporcionais ao peso estimado (g)" },
+                        type: "array",
+                        description: "Lista dos alimentos/bebidas visíveis na foto. Array vazio se is_food=false",
+                        items: {
+                          type: "object",
+                          properties: {
+                            food_name: { type: "string", description: "Nome específico do alimento em pt-BR" },
+                            weight_grams: { type: "number", description: "Peso estimado em gramas" },
+                            calories: { type: "number", description: "Calorias proporcionais ao peso (kcal)" },
+                            protein: { type: "number", description: "Proteínas proporcionais ao peso (g)" },
+                            carbs: { type: "number", description: "Carboidratos proporcionais ao peso (g)" },
+                            fat: { type: "number", description: "Gorduras proporcionais ao peso (g)" },
+                          },
+                          required: ["food_name", "weight_grams", "calories", "protein", "carbs", "fat"],
                         },
-                        required: ["food_name", "weight_grams", "calories", "protein", "carbs", "fat"],
                       },
                     },
+                    required: ["is_food", "total_calories", "total_protein", "total_carbs", "total_fat", "items"],
                   },
-                  required: ["is_food", "total_calories", "total_protein", "total_carbs", "total_fat", "items"],
                 },
               },
+            ],
+            tool_choice: {
+              type: "function",
+              function: { name: "return_meal_analysis" },
             },
-          ],
-          tool_choice: {
-            type: "function",
-            function: { name: "return_meal_analysis" },
-          },
-        }),
+          }),
+        }
+      );
+    } catch (fetchErr) {
+      clearTimeout(timeoutId);
+      // Timeout or network error
+      if (fetchErr instanceof DOMException && fetchErr.name === "AbortError") {
+        console.error("AI request timed out after 55s");
+        return new Response(
+          JSON.stringify({ error: "Nossa IA está muito requisitada no momento. Por favor, tente novamente em alguns segundos." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
-    );
+      console.error("AI fetch error:", fetchErr);
+      return new Response(
+        JSON.stringify({ error: "Nossa IA está muito requisitada no momento. Por favor, tente novamente em alguns segundos." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -142,7 +167,10 @@ REGRAS DE NOMENCLATURA:
         );
       }
 
-      throw new Error(`AI gateway returned ${response.status}`);
+      return new Response(
+        JSON.stringify({ error: "Nossa IA está muito requisitada no momento. Por favor, tente novamente em alguns segundos." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const data = await response.json();
@@ -155,6 +183,7 @@ REGRAS DE NOMENCLATURA:
           ? JSON.parse(toolCall.function.arguments)
           : toolCall.function.arguments;
 
+      console.log("AI analysis result:", JSON.stringify({ is_food: analysis.is_food, items_count: analysis.items?.length }));
       return new Response(JSON.stringify(analysis), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -174,7 +203,7 @@ REGRAS DE NOMENCLATURA:
   } catch (e) {
     console.error("analyze-meal error:", e);
     return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
+      JSON.stringify({ error: "Nossa IA está muito requisitada no momento. Por favor, tente novamente em alguns segundos." }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
