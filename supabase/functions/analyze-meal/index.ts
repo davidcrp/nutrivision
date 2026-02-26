@@ -39,31 +39,39 @@ serve(async (req) => {
           messages: [
             {
               role: "system",
-              content: `Você é um nutricionista especialista em visão computacional.
+              content: `Você é um nutricionista clínico e especialista em visão computacional hiper-precisa.
+Sua tarefa é analisar a imagem e retornar os dados nutricionais com máxima precisão.
 
-PRIMEIRO PASSO OBRIGATÓRIO: Verifique se a imagem contém comida, bebida ou ingredientes alimentícios reais.
+REGRAS DE VERIFICAÇÃO (CRÍTICO):
+1. Analise se a imagem contém comida real ou bebida real em um recipiente. Se for um objeto vazio (ex: xícara vazia) ou não comestível, use a função "return_no_food" e PARE.
+2. Diferencie com precisão bebidas de sólidos (ex: não confunda café escuro com sopa).
+3. NÃO invente alimentos que não estão claramente visíveis na foto.
 
-Se NÃO houver comida na imagem (ex: é uma foto de um notebook, um carro, uma pessoa sem comida, um objeto qualquer), você DEVE usar a função "return_no_food" para indicar que não há alimento.
-
-Se HOUVER comida real na imagem, use a função "return_meal_analysis" com a análise nutricional completa.
-
-INSTRUÇÕES PARA ANÁLISE (somente se houver comida):
-1. OLHE com atenção para a foto. Identifique APENAS os alimentos que você REALMENTE consegue ver.
-2. NÃO invente alimentos que não estão na foto.
-3. Estime porções REALISTAS baseadas no tamanho visual do prato. Um prato comum tem ~22cm de diâmetro.
+REGRAS DE MEDIDAS E PORÇÕES (CRÍTICO):
+1. NÃO use porções padrão genéricas (ex: '1 porção'). Você DEVE estimar o peso em gramas (g) ou volume em mililitros (ml) com base nas proporções visuais da foto (tamanho do prato, copo, talheres ao redor).
+2. Seja realista com as porções:
+   - Um prato raso padrão (~22cm) cheio de arroz: 200-250g
+   - Um prato fundo cheio de sopa: 300-400ml
+   - Um copo americano: ~200ml
+   - Uma xícara de café: ~50-80ml
+   - Uma colher de sopa cheia: ~15g (sólidos) ou ~15ml (líquidos)
+   - Um bife médio: 120-180g
+   - Uma porção de feijão (concha média): 80-120g
+3. Calcule as calorias e macros EXATAMENTE proporcionais ao peso/volume estimado.
 4. Use a Tabela TACO (Tabela Brasileira de Composição de Alimentos) como referência nutricional.
-5. Nomes dos alimentos DEVEM ser em português brasileiro (pt-BR).
-6. Valores de macronutrientes em gramas, calorias em kcal.
-7. Os totais DEVEM ser a soma exata dos itens individuais.
+5. Os totais DEVEM ser a soma EXATA dos itens individuais. Verifique a matemática antes de responder.
 
-IMPORTANTE: Seja rigoroso. Se a imagem não contém comida, NÃO tente analisar nutricionalmente.`,
+REGRAS DE NOMENCLATURA:
+1. Nomes dos alimentos DEVEM ser em português brasileiro (pt-BR).
+2. Use nomes específicos (ex: "Arroz Branco Cozido", não apenas "Arroz").
+3. Valores de macronutrientes em gramas, calorias em kcal.`,
             },
             {
               role: "user",
               content: [
                 {
                   type: "text",
-                  text: "Primeiro, verifique se esta imagem contém comida real. Se não contiver, informe que não há alimento. Se contiver, analise cada alimento visível, estime o peso e calcule os valores nutricionais.",
+                  text: "Primeiro, verifique se esta imagem contém comida ou bebida real. Se não contiver, informe que não há alimento. Se contiver, identifique CADA alimento visível, estime o peso/volume com base nas proporções visuais do recipiente, e calcule os valores nutricionais proporcionalmente usando a Tabela TACO. Confira a soma dos totais.",
                 },
                 {
                   type: "image_url",
@@ -77,28 +85,28 @@ IMPORTANTE: Seja rigoroso. Se a imagem não contém comida, NÃO tente analisar 
               type: "function",
               function: {
                 name: "return_meal_analysis",
-                description: "Retorna a análise da imagem. Se não houver comida, retorne is_food=false com message. Se houver comida, retorne is_food=true com a análise nutricional.",
+                description: "Retorna a análise nutricional completa da refeição identificada na imagem.",
                 parameters: {
                   type: "object",
                   properties: {
-                    is_food: { type: "boolean", description: "true se há comida na imagem, false se não há" },
-                    message: { type: "string", description: "Mensagem quando não há comida (ex: 'Nenhum alimento detectado na imagem.')" },
-                    total_calories: { type: "number", description: "Soma total de calorias (kcal). 0 se is_food=false" },
-                    total_protein: { type: "number", description: "Soma total de proteínas (g). 0 se is_food=false" },
-                    total_carbs: { type: "number", description: "Soma total de carboidratos (g). 0 se is_food=false" },
-                    total_fat: { type: "number", description: "Soma total de gorduras (g). 0 se is_food=false" },
+                    is_food: { type: "boolean", description: "true se há comida/bebida real na imagem, false caso contrário" },
+                    message: { type: "string", description: "Mensagem quando não há comida (ex: 'Nenhum alimento ou bebida detectado.')" },
+                    total_calories: { type: "number", description: "Soma EXATA das calorias de todos os itens (kcal). 0 se is_food=false" },
+                    total_protein: { type: "number", description: "Soma EXATA das proteínas de todos os itens (g). 0 se is_food=false" },
+                    total_carbs: { type: "number", description: "Soma EXATA dos carboidratos de todos os itens (g). 0 se is_food=false" },
+                    total_fat: { type: "number", description: "Soma EXATA das gorduras de todos os itens (g). 0 se is_food=false" },
                     items: {
                       type: "array",
-                      description: "Lista dos alimentos visíveis na foto. Array vazio se is_food=false",
+                      description: "Lista dos alimentos/bebidas visíveis na foto com pesos estimados visualmente. Array vazio se is_food=false",
                       items: {
                         type: "object",
                         properties: {
-                          food_name: { type: "string", description: "Nome do alimento em pt-BR" },
-                          weight_grams: { type: "number", description: "Peso estimado em gramas" },
-                          calories: { type: "number", description: "Calorias em kcal" },
-                          protein: { type: "number", description: "Proteínas em gramas" },
-                          carbs: { type: "number", description: "Carboidratos em gramas" },
-                          fat: { type: "number", description: "Gorduras em gramas" },
+                          food_name: { type: "string", description: "Nome específico do alimento em pt-BR (ex: 'Arroz Branco Cozido')" },
+                          weight_grams: { type: "number", description: "Peso estimado em gramas baseado nas proporções visuais do recipiente" },
+                          calories: { type: "number", description: "Calorias proporcionais ao peso estimado (kcal)" },
+                          protein: { type: "number", description: "Proteínas proporcionais ao peso estimado (g)" },
+                          carbs: { type: "number", description: "Carboidratos proporcionais ao peso estimado (g)" },
+                          fat: { type: "number", description: "Gorduras proporcionais ao peso estimado (g)" },
                         },
                         required: ["food_name", "weight_grams", "calories", "protein", "carbs", "fat"],
                       },
@@ -123,13 +131,13 @@ IMPORTANTE: Seja rigoroso. Se a imagem não contém comida, NÃO tente analisar 
 
       if (response.status === 429) {
         return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Try again in a moment." }),
+          JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em instantes." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       if (response.status === 402) {
         return new Response(
-          JSON.stringify({ error: "AI credits exhausted. Please add funds." }),
+          JSON.stringify({ error: "Créditos de IA esgotados." }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
