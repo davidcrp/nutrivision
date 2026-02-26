@@ -22,6 +22,45 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 
+// Compress image before upload to avoid timeout on large camera photos
+const compressImage = (file: File, quality = 0.7, maxWidth = 1080): Promise<File> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new window.Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth) {
+          height = Math.round(height * (maxWidth / width));
+          width = maxWidth;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { resolve(file); return; }
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve(new File([blob], file.name.replace(/\.\w+$/, ".jpg"), { type: "image/jpeg" }));
+            } else {
+              resolve(file);
+            }
+          },
+          "image/jpeg",
+          quality
+        );
+      };
+      img.onerror = () => resolve(file);
+    };
+    reader.onerror = () => resolve(file);
+  });
+};
+
 const CameraPage = () => {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -74,31 +113,39 @@ const CameraPage = () => {
     inputRef.current?.click();
   };
 
-  const analyzeFoodImage = async (file: File): Promise<{ result: AnalysisResult; rawResponse: any; imageUrl: string } | null> => {
-    // 1. Upload to meal-photos bucket
-    const ext = file.name.split(".").pop();
-    const userId = user?.id || "anonymous";
-    const path = `${userId}/${Date.now()}.${ext}`;
+  const analyzeFoodImage = async (rawFile: File): Promise<{ result: AnalysisResult; rawResponse: any; imageUrl: string } | null> => {
+    // 0. Require authentication for upload (RLS requires it)
+    if (!user) {
+      toast({ title: "Faça login para analisar refeições", variant: "destructive" });
+      return null;
+    }
 
+    // 1. Compress image to avoid timeout on large camera photos
+    console.log("[Upload] Original file size:", (rawFile.size / 1024 / 1024).toFixed(2), "MB");
+    const file = await compressImage(rawFile);
+    console.log("[Upload] Compressed file size:", (file.size / 1024 / 1024).toFixed(2), "MB");
+
+    // 2. Upload to meal-photos bucket
+    const path = `${user.id}/${Date.now()}.jpg`;
     console.log("[Upload] Starting upload to meal-photos bucket:", path);
 
     try {
       const { error: uploadError } = await supabase.storage
         .from("meal-photos")
-        .upload(path, file);
+        .upload(path, file, { contentType: file.type });
 
       if (uploadError) {
-        console.error("[Upload] Failed to upload image:", uploadError);
+        console.error("[Upload] Failed to upload image:", JSON.stringify(uploadError));
         toast({
           title: "Falha ao enviar a imagem",
-          description: "Verifique sua conexão e tente novamente.",
+          description: `Verifique sua conexão e tente novamente. (${uploadError.message})`,
           variant: "destructive",
         });
         return null;
       }
 
       console.log("[Upload] Image uploaded successfully");
-    } catch (uploadErr) {
+    } catch (uploadErr: any) {
       console.error("[Upload] Upload threw an exception:", uploadErr);
       toast({
         title: "Falha ao enviar a imagem",
