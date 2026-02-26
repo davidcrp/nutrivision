@@ -58,6 +58,7 @@ export type Database = {
       meals: {
         Row: {
           ai_confidence_score: number | null
+          ai_raw_response: Json | null
           id: string
           image_url: string | null
           is_verified: boolean | null
@@ -71,6 +72,7 @@ export type Database = {
         }
         Insert: {
           ai_confidence_score?: number | null
+          ai_raw_response?: Json | null
           id?: string
           image_url?: string | null
           is_verified?: boolean | null
@@ -84,6 +86,7 @@ export type Database = {
         }
         Update: {
           ai_confidence_score?: number | null
+          ai_raw_response?: Json | null
           id?: string
           image_url?: string | null
           is_verified?: boolean | null

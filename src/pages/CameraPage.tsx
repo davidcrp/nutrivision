@@ -13,23 +13,15 @@ import ResultsBottomSheet, {
   type MealType,
 } from "@/components/ResultsBottomSheet";
 
-const mockAnalysisResult: AnalysisResult = {
-  total_calories: 485,
-  total_protein: 42.9,
-  total_carbs: 64.9,
-  total_fat: 4.5,
-  items: [
-    { food_name: "Arroz branco", weight_grams: 160, calories: 206, protein: 4.3, carbs: 44.5, fat: 0.4 },
-    { food_name: "Feijão preto", weight_grams: 86, calories: 114, protein: 7.6, carbs: 20.4, fat: 0.5 },
-    { food_name: "Frango grelhado", weight_grams: 100, calories: 165, protein: 31, carbs: 0, fat: 3.6 },
-  ],
-};
+// No more mock data - all plans use real AI analysis
 
 const CameraPage = () => {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [aiRawResponse, setAiRawResponse] = useState<any>(null);
+  const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
   const [showResults, setShowResults] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -72,45 +64,52 @@ const CameraPage = () => {
     inputRef.current?.click();
   };
 
-  const analyzeFoodImage = async (file: File): Promise<AnalysisResult | null> => {
-    try {
-      let imageUrl: string | null = null;
-      if (user) {
-        const ext = file.name.split(".").pop();
-        const path = `${user.id}/${Date.now()}.${ext}`;
-        const { error: uploadError } = await supabase.storage
-          .from("meal-photos")
-          .upload(path, file);
-        if (!uploadError) {
-          const { data: urlData } = supabase.storage
-            .from("meal-photos")
-            .getPublicUrl(path);
-          imageUrl = urlData.publicUrl;
-        }
-      }
+  const analyzeFoodImage = async (file: File): Promise<{ result: AnalysisResult; rawResponse: any; imageUrl: string } | null> => {
+    // Always upload to meal-photos bucket for dataset building
+    const ext = file.name.split(".").pop();
+    const userId = user?.id || "anonymous";
+    const path = `${userId}/${Date.now()}.${ext}`;
+    const { error: uploadError } = await supabase.storage
+      .from("meal-photos")
+      .upload(path, file);
 
-      if (imageUrl) {
-        const { data, error } = await supabase.functions.invoke("analyze-meal", {
-          body: { imageUrl },
-        });
-        if (error) {
-          console.error("AI analysis error:", error);
-          toast({ title: "Erro na análise, usando estimativa", variant: "destructive" });
-        } else if (data && !data.error) {
-          if (data.is_food === false) {
-            return null; // Signal: no food detected
-          }
-          return data as AnalysisResult;
-        }
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      return mockAnalysisResult;
-    } catch (err) {
-      console.error("analyzeFoodImage error:", err);
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      return mockAnalysisResult;
+    let imageUrl: string = "";
+    if (!uploadError) {
+      const { data: urlData } = supabase.storage
+        .from("meal-photos")
+        .getPublicUrl(path);
+      imageUrl = urlData.publicUrl;
     }
+
+    if (!imageUrl) {
+      toast({ title: "Erro ao enviar imagem", description: "Não foi possível fazer upload da foto.", variant: "destructive" });
+      return null;
+    }
+
+    const { data, error } = await supabase.functions.invoke("analyze-meal", {
+      body: { imageUrl },
+    });
+
+    if (error) {
+      console.error("AI analysis error:", error);
+      toast({ title: "Erro na análise da IA", description: "Tente novamente.", variant: "destructive" });
+      return null;
+    }
+
+    if (data?.error) {
+      toast({ title: "Erro na análise", description: data.error, variant: "destructive" });
+      return null;
+    }
+
+    if (data?.is_food === false) {
+      return null; // No food detected - handled by caller
+    }
+
+    return {
+      result: data as AnalysisResult,
+      rawResponse: data,
+      imageUrl,
+    };
   };
 
   const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -123,10 +122,10 @@ const CameraPage = () => {
     setImagePreview(url);
     setScanning(true);
 
-    const result = await analyzeFoodImage(file);
+    const analysisData = await analyzeFoodImage(file);
     setScanning(false);
 
-    if (result === null) {
+    if (analysisData === null) {
       toast({
         title: "🍽️ Nenhum alimento detectado",
         description: "A foto não parece conter comida. Tire uma foto clara de uma refeição.",
@@ -136,7 +135,9 @@ const CameraPage = () => {
       return;
     }
 
-    setAnalysisResult(result);
+    setAnalysisResult(analysisData.result);
+    setAiRawResponse(analysisData.rawResponse);
+    setUploadedImageUrl(analysisData.imageUrl);
     setShowResults(true);
   };
 
@@ -168,23 +169,8 @@ const CameraPage = () => {
         imageUrl: imagePreview || undefined,
       });
 
-      // Save to DB if logged in
+      // Save to DB if logged in (image already uploaded during analysis)
       if (user) {
-        let dbImageUrl: string | null = null;
-        if (imageFile) {
-          const ext = imageFile.name.split(".").pop();
-          const path = `${user.id}/${Date.now()}.${ext}`;
-          const { error: uploadError } = await supabase.storage
-            .from("meal-photos")
-            .upload(path, imageFile);
-          if (!uploadError) {
-            const { data: urlData } = supabase.storage
-              .from("meal-photos")
-              .getPublicUrl(path);
-            dbImageUrl = urlData.publicUrl;
-          }
-        }
-
         const mealTypeMap: Record<MealType, string> = {
           breakfast: "breakfast",
           lunch: "lunch",
@@ -197,14 +183,15 @@ const CameraPage = () => {
           .insert({
             user_id: user.id,
             meal_type: mealTypeMap[mealType],
-            image_url: dbImageUrl,
+            image_url: uploadedImageUrl,
             total_calories: Math.round(totals.calories),
             total_protein: Math.round(totals.protein * 10) / 10,
             total_carbs: Math.round(totals.carbs * 10) / 10,
             total_fat: Math.round(totals.fat * 10) / 10,
             ai_confidence_score: 85,
             is_verified: true,
-          })
+            ai_raw_response: aiRawResponse,
+          } as any)
           .select("id")
           .single();
 
@@ -237,6 +224,8 @@ const CameraPage = () => {
     setImagePreview(null);
     setScanning(false);
     setAnalysisResult(null);
+    setAiRawResponse(null);
+    setUploadedImageUrl(null);
     setShowResults(false);
     if (cameraInputRef.current) cameraInputRef.current.value = "";
     if (galleryInputRef.current) galleryInputRef.current.value = "";
