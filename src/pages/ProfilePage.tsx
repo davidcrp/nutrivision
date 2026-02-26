@@ -13,6 +13,7 @@ import NutritionGoalsModal from "@/components/profile/NutritionGoalsModal";
 import NotificationsModal from "@/components/profile/NotificationsModal";
 import PrivacyModal from "@/components/profile/PrivacyModal";
 import HelpModal from "@/components/profile/HelpModal";
+import ForgotPasswordModal from "@/components/ForgotPasswordModal";
 
 type ThemeKey = "default" | "ocean" | "sunset" | "forest";
 
@@ -47,6 +48,7 @@ const ProfilePage = () => {
   const [notifOpen, setNotifOpen] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
 
   const toggleDarkMode = (checked: boolean) => {
     setDarkMode(checked);
@@ -267,7 +269,15 @@ const ProfilePage = () => {
               </button>
             </form>
 
-            <p className="text-center text-xs text-muted-foreground mt-4">
+            {!isSignUp && (
+              <p className="text-center text-xs text-muted-foreground mt-3">
+                <button onClick={() => setForgotOpen(true)} className="text-primary font-semibold">
+                  Esqueci minha senha
+                </button>
+              </p>
+            )}
+
+            <p className="text-center text-xs text-muted-foreground mt-3">
               {isSignUp ? "Já tem conta?" : "Não tem conta?"}{" "}
               <button onClick={() => setIsSignUp(!isSignUp)} className="text-primary font-semibold">
                 {isSignUp ? "Faça login" : "Cadastre-se"}
@@ -447,6 +457,7 @@ const ProfilePage = () => {
       <NotificationsModal open={notifOpen} onOpenChange={setNotifOpen} />
       <PrivacyModal open={privacyOpen} onOpenChange={setPrivacyOpen} />
       <HelpModal open={helpOpen} onOpenChange={setHelpOpen} />
+      <ForgotPasswordModal open={forgotOpen} onOpenChange={setForgotOpen} />
 
       <BottomNav />
     </div>
