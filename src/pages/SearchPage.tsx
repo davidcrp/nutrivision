@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Search, Clock, TrendingUp, ChevronRight, X, Loader2, Minus, Plus } from "lucide-react";
+import FavoriteToggle from "@/components/FavoriteToggle";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMeals } from "@/contexts/MealContext";
@@ -325,6 +326,17 @@ const SearchPage = () => {
                     <p className="text-sm font-medium text-foreground">{food.name}</p>
                     <p className="text-xs text-muted-foreground">{food.calories} kcal · {food.portion}</p>
                   </div>
+                  <FavoriteToggle
+                    name={food.name}
+                    emoji={food.emoji}
+                    calories={food.calories}
+                    protein={food.protein}
+                    carbs={food.carbs}
+                    fat={food.fat}
+                    weightGrams={food.weightGrams}
+                    mealType="snack"
+                    size={16}
+                  />
                   <ChevronRight size={16} className="text-muted-foreground" />
                 </button>
               ))}

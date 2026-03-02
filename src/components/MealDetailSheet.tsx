@@ -1,4 +1,5 @@
 import { Trash2, Plus, Utensils } from "lucide-react";
+import FavoriteToggle from "@/components/FavoriteToggle";
 import {
   Drawer,
   DrawerContent,
@@ -60,6 +61,15 @@ const MealDetailSheet = ({ open, onClose, meals, title }: MealDetailSheetProps) 
                   <span className="text-[10px] text-muted-foreground">G:{item.fat.toFixed(1)}g</span>
                 </div>
               </div>
+              <FavoriteToggle
+                name={item.food_name}
+                calories={item.calories}
+                protein={item.protein}
+                carbs={item.carbs}
+                fat={item.fat}
+                weightGrams={item.weight_grams}
+                mealType={meals[0]?.mealType ?? "snack"}
+              />
               <button
                 onClick={() => removeItemFromMeal(item.mealId, item.id)}
                 className="p-2 rounded-xl hover:bg-destructive/10 transition-colors group"

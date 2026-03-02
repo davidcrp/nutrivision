@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ChevronDown, Clock, Users, ChevronRight } from "lucide-react";
+import FavoriteToggle from "@/components/FavoriteToggle";
 import { useMeals, type MockRecipe } from "@/contexts/MealContext";
 import {
   Drawer,
@@ -51,7 +52,17 @@ const RecipeBanner = () => {
                   <p className="text-xs font-semibold text-foreground whitespace-nowrap">{recipe.name}</p>
                   <p className="text-[10px] text-muted-foreground">{recipe.calories} kcal</p>
                 </div>
-                <ChevronRight size={14} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-1" />
+                <FavoriteToggle
+                  name={recipe.name}
+                  emoji={recipe.emoji}
+                  calories={recipe.calories}
+                  protein={0}
+                  carbs={0}
+                  fat={0}
+                  weightGrams={0}
+                  mealType="snack"
+                  size={14}
+                />
               </button>
             ))}
           </div>
