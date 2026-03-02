@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { startOfDay } from "date-fns";
 import { useMeals, type LoggedMeal } from "@/contexts/MealContext";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { Card, CardContent } from "@/components/ui/card";
@@ -32,13 +33,13 @@ function generateReportData(loggedMeals: LoggedMeal[], dailyGoal: number, period
   for (let i = periodDays - 1; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
-    const dateKey = d.toISOString().slice(0, 10);
+    const dateKey = startOfDay(d).toISOString().slice(0, 10);
     const label = i === 0 ? "Hoje" : periodDays <= 7 ? DAY_LABELS[d.getDay()] : `${d.getDate()}/${d.getMonth() + 1}`;
 
     let calories = 0, protein = 0, carbs = 0, fat = 0;
     for (const meal of loggedMeals) {
-      const mealDate = new Date(meal.loggedAt).toISOString().slice(0, 10);
-      if (mealDate === dateKey) {
+      const mealLocalDate = startOfDay(new Date(meal.loggedAt)).toISOString().slice(0, 10);
+      if (mealLocalDate === dateKey) {
         for (const item of meal.items) {
           calories += item.calories;
           protein += item.protein;

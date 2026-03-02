@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useMemo, useEffect, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { startOfDay, endOfDay, subDays } from "date-fns";
 
 export interface MealItem {
   id: string;
@@ -91,10 +92,11 @@ interface MealState {
 
 const MealContext = createContext<MealState | null>(null);
 
-function startOfToday(): string {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d.toISOString();
+function getLocalDayBoundsUTC(date: Date): { start: string; end: string } {
+  return {
+    start: startOfDay(date).toISOString(),
+    end: endOfDay(date).toISOString(),
+  };
 }
 
 export const MealProvider = ({ children }: { children: ReactNode }) => {
@@ -149,31 +151,30 @@ export const MealProvider = ({ children }: { children: ReactNode }) => {
       });
   }, [user]);
 
-  // Fetch today's meals from DB
-  const fetchTodayMeals = useCallback(async () => {
+  // Fetch meals from DB (last 30 days for analysis, dashboard filters locally)
+  const fetchAllMeals = useCallback(async () => {
     if (!user) {
       setLoggedMeals([]);
       return;
     }
     setLoadingMeals(true);
     try {
-      const todayStart = startOfToday();
+      const thirtyDaysAgo = startOfDay(subDays(new Date(), 30)).toISOString();
+
       const { data: meals, error } = await supabase
         .from("meals")
-        .select("id, meal_type, logged_at, image_url, total_calories, total_protein, total_carbs, total_fat")
+        .select("id, meal_type, logged_at, image_url")
         .eq("user_id", user.id)
-        .gte("logged_at", todayStart)
+        .gte("logged_at", thirtyDaysAgo)
         .order("logged_at", { ascending: true });
 
       if (error) throw error;
-
       if (!meals || meals.length === 0) {
         setLoggedMeals([]);
         setLoadingMeals(false);
         return;
       }
 
-      // Fetch items for all meals
       const mealIds = meals.map((m) => m.id);
       const { data: items, error: itemsError } = await supabase
         .from("meal_items")
@@ -213,87 +214,24 @@ export const MealProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [user]);
 
-  // Also fetch last 7 days for analysis (store all, filter in components)
-  const fetchWeekMeals = useCallback(async () => {
-    if (!user) {
-      setLoggedMeals([]);
-      return;
-    }
-    setLoadingMeals(true);
-    try {
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      weekAgo.setHours(0, 0, 0, 0);
-
-      const { data: meals, error } = await supabase
-        .from("meals")
-        .select("id, meal_type, logged_at, image_url")
-        .eq("user_id", user.id)
-        .gte("logged_at", weekAgo.toISOString())
-        .order("logged_at", { ascending: true });
-
-      if (error) throw error;
-      if (!meals || meals.length === 0) {
-        setLoggedMeals([]);
-        setLoadingMeals(false);
-        return;
-      }
-
-      const mealIds = meals.map((m) => m.id);
-      const { data: items, error: itemsError } = await supabase
-        .from("meal_items")
-        .select("id, meal_id, food_name, weight_grams, calories, protein, carbs, fat")
-        .in("meal_id", mealIds);
-
-      if (itemsError) throw itemsError;
-
-      const itemsByMeal = new Map<string, MealItem[]>();
-      for (const item of items ?? []) {
-        const list = itemsByMeal.get(item.meal_id) ?? [];
-        list.push({
-          id: item.id,
-          food_name: item.food_name,
-          weight_grams: item.weight_grams,
-          calories: item.calories,
-          protein: Number(item.protein),
-          carbs: Number(item.carbs),
-          fat: Number(item.fat),
-        });
-        itemsByMeal.set(item.meal_id, list);
-      }
-
-      const mapped: LoggedMeal[] = meals.map((m) => ({
-        id: m.id,
-        mealType: m.meal_type as LoggedMeal["mealType"],
-        items: itemsByMeal.get(m.id) ?? [],
-        imageUrl: m.image_url ?? undefined,
-        loggedAt: new Date(m.logged_at),
-      }));
-
-      setLoggedMeals(mapped);
-    } catch (err) {
-      console.error("Error fetching week meals:", err);
-    } finally {
-      setLoadingMeals(false);
-    }
-  }, [user]);
-
   // Load meals when user changes
   useEffect(() => {
     if (isLoggedIn) {
-      fetchWeekMeals();
+      fetchAllMeals();
     } else {
       setLoggedMeals([]);
     }
-  }, [isLoggedIn, fetchWeekMeals]);
+  }, [isLoggedIn, fetchAllMeals]);
 
-  // STRICT MATH: all totals derived from loggedMeals items (today only)
+  // STRICT MATH: all totals derived from loggedMeals items (today only, local timezone)
   const { consumedCalories, consumedMacros } = useMemo(() => {
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const todayStart = startOfDay(now).getTime();
+    const todayEnd = endOfDay(now).getTime();
     let cal = 0, protein = 0, carbs = 0, fat = 0;
     for (const meal of loggedMeals) {
-      const mealDate = new Date(meal.loggedAt).toISOString().slice(0, 10);
-      if (mealDate !== todayStr) continue;
+      const mealTime = meal.loggedAt.getTime();
+      if (mealTime < todayStart || mealTime > todayEnd) continue;
       for (const item of meal.items) {
         cal += item.calories;
         protein += item.protein;
@@ -417,7 +355,7 @@ export const MealProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem("daily_goal");
   }, []);
 
-  const refreshMeals = fetchWeekMeals;
+  const refreshMeals = fetchAllMeals;
 
   return (
     <MealContext.Provider
