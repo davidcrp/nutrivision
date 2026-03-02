@@ -1,4 +1,4 @@
-import { Plus, MoreVertical, Trash2, Loader2 } from "lucide-react";
+import { Plus, MoreVertical, Trash2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,13 +20,12 @@ interface FavoriteItem {
 
 interface FavoriteCardProps {
   item: FavoriteItem;
-  addingId: string | null;
   onQuickLog: (item: FavoriteItem) => void;
   onRemove: (id: string) => void;
   mealTypeLabels: Record<string, string>;
 }
 
-const FavoriteCard = ({ item, addingId, onQuickLog, onRemove, mealTypeLabels }: FavoriteCardProps) => {
+const FavoriteCard = ({ item, onQuickLog, onRemove, mealTypeLabels }: FavoriteCardProps) => {
   return (
     <div className="relative flex items-center gap-3 rounded-2xl bg-card p-4 shadow-sm transition-shadow hover:shadow-md active:shadow-md">
       {/* Emoji */}
@@ -48,14 +47,9 @@ const FavoriteCard = ({ item, addingId, onQuickLog, onRemove, mealTypeLabels }: 
       {/* Quick-log button */}
       <button
         onClick={() => onQuickLog(item)}
-        disabled={addingId === item.id}
-        className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center shrink-0 hover:bg-primary/25 transition-colors disabled:opacity-50"
+        className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center shrink-0 hover:bg-primary/25 transition-colors"
       >
-        {addingId === item.id ? (
-          <Loader2 size={18} className="text-primary animate-spin" />
-        ) : (
-          <Plus size={20} className="text-primary" />
-        )}
+        <Plus size={20} className="text-primary" />
       </button>
 
       {/* More menu */}

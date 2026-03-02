@@ -1,20 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
-import { Heart, HeartCrack, Plus, MoreVertical, Trash2, Loader2, Sparkles } from "lucide-react";
+import { Heart, HeartCrack, Sparkles } from "lucide-react";
 import BottomNav from "@/components/BottomNav";
-import { useMeals } from "@/contexts/MealContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import FavoriteCard from "@/components/favorites/FavoriteCard";
 import SuggestionsTab from "@/components/favorites/SuggestionsTab";
+import PortionModal, { type PortionModalFood } from "@/components/PortionModal";
 
 interface FavoriteItem {
   id: string;
@@ -46,14 +40,13 @@ const filterToMealType: Record<string, string> = {
 
 const FavoritesPage = () => {
   const { user } = useAuth();
-  const { addMeal } = useMeals();
   const { toast } = useToast();
 
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("Todos");
-  const [addingId, setAddingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selectedForPortion, setSelectedForPortion] = useState<PortionModalFood | null>(null);
 
   const filters = ["Todos", "Café da Manhã", "Almoço", "Lanche", "Jantar"];
 
@@ -104,39 +97,18 @@ const FavoritesPage = () => {
       ? favorites
       : favorites.filter((f) => f.meal_type === filterToMealType[filter]);
 
-  /* ─── Quick Add to diary ─── */
-  const quickLog = async (item: FavoriteItem) => {
-    if (addingId) return;
-    setAddingId(item.id);
-    try {
-      await addMeal({
-        mealType: item.meal_type as MealType,
-        items: [
-          {
-            id: crypto.randomUUID(),
-            food_name: item.name,
-            weight_grams: item.weight_grams,
-            calories: item.calories,
-            protein: item.protein,
-            carbs: item.carbs,
-            fat: item.fat,
-          },
-        ],
-      });
-      const label = mealTypeLabels[item.meal_type] ?? item.meal_type;
-      toast({
-        title: "✅ Adicionado!",
-        description: `${item.name} adicionado ao ${label} de hoje.`,
-      });
-    } catch (err: any) {
-      toast({
-        title: "Erro",
-        description: err.message || "Não foi possível adicionar.",
-        variant: "destructive",
-      });
-    } finally {
-      setAddingId(null);
-    }
+  /* ─── Open portion modal ─── */
+  const openPortionModal = (item: FavoriteItem) => {
+    setSelectedForPortion({
+      name: item.name,
+      emoji: item.emoji,
+      calories: item.calories,
+      protein: item.protein,
+      carbs: item.carbs,
+      fat: item.fat,
+      weight_grams: item.weight_grams,
+      meal_type: item.meal_type,
+    });
   };
 
   /* ─── Remove favorite ─── */
@@ -230,8 +202,7 @@ const FavoritesPage = () => {
                   <FavoriteCard
                     key={item.id}
                     item={item}
-                    addingId={addingId}
-                    onQuickLog={quickLog}
+                    onQuickLog={openPortionModal}
                     onRemove={removeFav}
                     mealTypeLabels={mealTypeLabels}
                   />
@@ -257,10 +228,16 @@ const FavoritesPage = () => {
 
           {/* ─── Sugestões Tab ─── */}
           <TabsContent value="suggestions">
-            <SuggestionsTab onSaved={fetchFavorites} />
+            <SuggestionsTab onSaved={fetchFavorites} onQuickLog={(food) => setSelectedForPortion(food)} />
           </TabsContent>
         </Tabs>
       </div>
+      {selectedForPortion && (
+        <PortionModal
+          food={selectedForPortion}
+          onClose={() => setSelectedForPortion(null)}
+        />
+      )}
       <BottomNav />
     </div>
   );

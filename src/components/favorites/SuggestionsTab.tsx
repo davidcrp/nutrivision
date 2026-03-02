@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Heart, Loader2 } from "lucide-react";
+import { Heart, Loader2, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { type PortionModalFood } from "@/components/PortionModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
@@ -138,9 +139,10 @@ const mealTypeLabels: Record<string, string> = {
 
 interface SuggestionsTabProps {
   onSaved: () => void;
+  onQuickLog: (food: PortionModalFood) => void;
 }
 
-const SuggestionsTab = ({ onSaved }: SuggestionsTabProps) => {
+const SuggestionsTab = ({ onSaved, onQuickLog }: SuggestionsTabProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [savingName, setSavingName] = useState<string | null>(null);
@@ -221,22 +223,42 @@ const SuggestionsTab = ({ onSaved }: SuggestionsTabProps) => {
                 </p>
               </div>
 
-              <button
-                onClick={() => saveToFavorites(food)}
-                disabled={isSaving || isSaved}
-                className={`flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition-all shrink-0 ${
-                  isSaved
-                    ? "bg-destructive/10 text-destructive"
-                    : "bg-primary/15 text-primary hover:bg-primary/25"
-                } disabled:opacity-60`}
-              >
-                {isSaving ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <Heart size={14} className={isSaved ? "fill-destructive" : ""} />
-                )}
-                {isSaved ? "Salvo" : "Salvar"}
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                {/* Quick-log via portion modal */}
+                <button
+                  onClick={() => onQuickLog({
+                    name: food.name,
+                    emoji: food.emoji,
+                    calories: food.calories,
+                    protein: food.protein,
+                    carbs: food.carbs,
+                    fat: food.fat,
+                    weight_grams: food.weightGrams,
+                    meal_type: food.mealType,
+                  })}
+                  className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center hover:bg-primary/25 transition-colors"
+                >
+                  <Plus size={18} className="text-primary" />
+                </button>
+
+                {/* Save to favorites */}
+                <button
+                  onClick={() => saveToFavorites(food)}
+                  disabled={isSaving || isSaved}
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition-all ${
+                    isSaved
+                      ? "bg-destructive/10 text-destructive"
+                      : "bg-primary/15 text-primary hover:bg-primary/25"
+                  } disabled:opacity-60`}
+                >
+                  {isSaving ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Heart size={14} className={isSaved ? "fill-destructive" : ""} />
+                  )}
+                  {isSaved ? "Salvo" : "Salvar"}
+                </button>
+              </div>
             </div>
           );
         })}
